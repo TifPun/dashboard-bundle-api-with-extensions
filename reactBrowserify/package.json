@@ -1,0 +1,28 @@
+{
+  "name": "dashboard-bundle-api-with-extensions",
+  "version": "1.0.0",
+  "description": "experimenting on react and browserify ",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TifPun/dashboard-bundle-api-with-extensions.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TifPun/dashboard-bundle-api-with-extensions/issues"
+  },
+  "homepage": "https://github.com/TifPun/dashboard-bundle-api-with-extensions#readme",
+  "dependencies": {
+    "babel-preset-react": "^6.11.1",
+    "babelify": "^7.3.0",
+    "react": "^15.3.2",
+    "react-dom": "^15.3.2"
+  },
+  "scripts": {
+    "build": "browserify -t [ babelify --presets [ react ] ] src/index.js -o build/app.js"
+  }
+}

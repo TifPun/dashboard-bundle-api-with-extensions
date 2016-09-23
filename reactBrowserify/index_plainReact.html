@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.14.6/react.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.14.6/react-dom.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.js"></script>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="text/babel">
+    var ChatMessage = React.createClass({
+      render: function() {
+        return <p>{this.props.message}</p>;
+      }
+    });
+
+    var Chat = React.createClass({
+      getInitialState: function() {
+        return {
+          text: '',
+          messages: []
+        };
+      },
+    
+      submit: function(ev) {
+        ev.preventDefault();
+
+        var newMessage = <ChatMessage message={this.state.text} />;
+
+        this.setState({
+          messages: this.state.messages.concat([newMessage])
+        });
+      },
+    
+      updateInput: function(ev) {
+        this.setState({
+          text: ev.target.value
+        });
+      },
+      
+      render: function() {
+        return <div>
+          <div>{this.state.messages}</div>
+          <form onSubmit={this.submit}>
+            <input onChange={this.updateInput} type="text" placeholder="Your message" />
+            <input type="submit" value="Send" />
+          </form>
+        </div>;
+      }
+    });
+
+    ReactDOM.render(
+      <Chat />,
+      document.getElementById('app')
+    );
+    </script>
+</body>
+
+</html>
