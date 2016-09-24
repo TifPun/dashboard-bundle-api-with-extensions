@@ -24,3 +24,11 @@
 1. `npm install --save watchify`
 1. `watchify -t [ babelify --presets [ react ] ] src/index.js -o build/app.js -v`
 1. The step above can also be added to 'script` property in package.json and be called by running `npm run <command>`
+
+## Reference
+- React + Browserify: 
+ - http://codeutopia.net/blog/2016/01/25/getting-started-with-npm-and-browserify-in-a-react-project/
+- React.js tutorials:
+ - https://scotch.io/tutorials/learning-react-getting-started-and-concepts
+ - https://scotch.io/tutorials/reactjs-components-learning-the-basics
+ - https://scotch.io/tutorials/routing-react-apps-the-complete-guide
