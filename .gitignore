@@ -2,3 +2,4 @@ reactBrowserify/node_modules
 reactBrowserify/build
 reactProject/node_modules
 reactProject/build
+npm-debug.log

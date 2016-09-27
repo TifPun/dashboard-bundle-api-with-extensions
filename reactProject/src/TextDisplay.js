@@ -1,26 +1,24 @@
 var React = require("react");
 
 module.exports = React.createClass({
-  propType: function(){
-    
-  },
 
   getInitialState: function () {
-    var initialMessage = "waiting for text input...";
-    var message = initialMessage;
     return {
-      initialMessage: initialMessage,
-      message: message
+      initialMessage: "waiting for text input..."
     }
   },
 
-  updateMessageDisplay: function (event) {
-    if (this.state.message === this.state.initialMessage)
-      this.state.message = "";
-
+  componentWillMount: function () {
     this.setState({
-      message: event.target.value
-    })
+      message: this.state.initialMessage
+    });
+  },
+
+  updateMessageDisplay: function (event) {
+    if (event.target.value === "")
+      this.setState({ message: this.state.initialMessage });
+    else
+      this.setState({ message: event.target.value });
   },
 
   render: function () {
