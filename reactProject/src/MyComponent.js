@@ -12,6 +12,6 @@ module.exports = React.createClass({
   },
 
   render: function(){
-    return <h1>Hello world from {this.props.name} @ {this.state.count}</h1>;
+    return <b>Hello world from {this.props.name} @ {this.state.count}</b>;
   }
 });
