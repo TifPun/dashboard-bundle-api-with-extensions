@@ -3,3 +3,4 @@ reactBrowserify/build
 reactProject/node_modules
 reactProject/build
 npm-debug.log
+reactAuth/node_modules
