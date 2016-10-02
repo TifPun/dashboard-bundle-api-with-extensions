@@ -1,0 +1,33 @@
+{
+  "name": "dashboard-bundle-api-with-extensions",
+  "version": "1.0.0",
+  "description": "An Operations Dashboard utility that bundles the ArcGIS API for JavaScript with sample extensions",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "build": "browserify -t [ babelify --presets [ react ] ] app/js/main.js -o build/app.js",
+    "watch": "watchify -t [ babelify --presets [ react ] ] app/js/main.js -o build/app.js -v"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://TifPun@github.com/TifPun/opsDashboard-bundle-api-with-extensions.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TifPun/opsDashboard-bundle-api-with-extensions/issues"
+  },
+  "homepage": "https://github.com/TifPun/opsDashboard-bundle-api-with-extensions#readme",
+  "dependencies": {
+    "babel-preset-react": "^6.16.0",
+    "babel-standalone": "^6.15.0",
+    "babelify": "^7.3.0",
+    "body-parser": "^1.15.2",
+    "express": "^4.14.0",
+    "jquery": "^3.1.1",
+    "react": "^15.3.0",
+    "react-dom": "^15.3.0",
+    "watchify": "^3.7.0"
+  }
+}
