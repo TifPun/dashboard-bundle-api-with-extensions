@@ -32,3 +32,15 @@
  - https://scotch.io/tutorials/learning-react-getting-started-and-concepts
  - https://scotch.io/tutorials/reactjs-components-learning-the-basics
  - https://scotch.io/tutorials/routing-react-apps-the-complete-guide
+
+ ## Notes
+ - this.props are owned by parents and passed to children
+ - this.states is private to a component. When state is updated by this.setState(), component re-renders
+ - lifecycle methods: 
+  - getInitialState: called once to setup the initial state of component
+  - componentDidMount: called after component is rendered for the first time
+- state: 
+ - don't use states to build a static version of app. state is for interactivity
+ - state changes overtime and can't be computed from anything (e.g. user text, checkbox value)
+ - if a state is modified by this.setState(), the class must have this.getInitialState() to set the init. value of the state
+- smaller project: top-down;
