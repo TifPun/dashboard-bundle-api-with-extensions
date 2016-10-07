@@ -2,6 +2,7 @@ var fs = require('fs-extra');
 var path = require('path');
 var express = require('express');
 var bodyParser = require('body-parser');
+var archiver = require("archiver");
 var app = express();
 
 app.set('port', (process.env.PORT || 3000));
@@ -31,31 +32,32 @@ app.post('/submit', function (req, res) {
   });
 });
 
-var getServerDomain = function (url) {
+function getServerDomain(url) {
   var domain = url.split("//")[1];
   if (!domain) {
     console.log("server domain cannot be determined");
     process.exit(1);
   }
 
-  if (!domain.endsWith("/"))
-    domain += "/";
+  domain = domain.endsWith("/")? domain : domain += "/"; 
 
   console.log("server domain is now " + domain);
 
   return domain;
 };
 
-var createBundle = function (serverDomain) {
+function createBundle(serverDomain) {
   console.log("starting to bundle");
 
   var sourceFolder = path.join(__dirname, "data");
-  var outputFolder = path.join(__dirname, "output/extensions/jsapi-bundled");
+  var outputFolder = path.join(__dirname, "output/jsapi-bundled");
   var outputFolderApi = path.join(outputFolder, "arcgis_js_api");
   var outputApiFilePaths = [path.join(outputFolderApi, "init.js"), path.join(outputFolderApi, "dojo/dojo.js")];
+  var outputFolderContainer = path.join(outputFolder, "../");
 
-  // delete contents in the output folder. If the output folder doesn't exist, it will be created
-  fs.emptyDirSync(outputFolder);
+  // empty the content in the output folder without deleting the folder itself 
+  // the folder (and parent folder) will be created if not exists
+  fs.emptyDirSync(outputFolderContainer);
 
   console.log("dir created. Copying begins");
 
@@ -82,9 +84,10 @@ var createBundle = function (serverDomain) {
       replaceText(path, serverDomain);
     });
 
-    // zip output folder
+    console.log("finished replacing. Start zipping");
 
-    // send download link in the output 
+    // zip output folder
+    zipOutput(outputFolderContainer);
   });
 }
 
@@ -109,7 +112,6 @@ function getExtensionFiles(folder, outputFolderApi, extensionFiles) {
 
 function replaceText(path, serverDomain) {
   fs.readFile(path, "utf8", function (err, data) {
-    console.log("replacing " + path);
     if (err) {
       console.log("error reading " + path + ". Details: " + err);
       return;
@@ -120,6 +122,28 @@ function replaceText(path, serverDomain) {
       if (err)
         console.log("error writing into " + path + ". Details: " + err);
     });
+  });
+}
+
+function zipOutput(container) {
+  var archive = archiver('zip');
+  var output = fs.createWriteStream(path.join(container, "extensions.zip"));
+
+  output.on('close', function () {
+    console.log(archive.pointer() + ' total bytes');
+    console.log("archiver has been finalized and the output file descriptor has closed.");
+  });
+
+  archive.on('error', function (err) {
+    throw err;
+  });
+
+  archive.pipe(output);
+
+  archive.directory(path.join(container, "jsapi-bundled"), "extensions/jsapi-bundled");
+
+  archive.finalize(function (err, bytes) {
+    if (err) throw err;
   });
 }
 
