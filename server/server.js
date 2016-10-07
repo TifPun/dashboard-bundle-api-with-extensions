@@ -24,6 +24,8 @@ app.post('/submit', function (req, res) {
 
   var serverDomain = getServerDomain(url);
 
+  createBundle(serverDomain);
+
   res.json({
     url: serverDomain
   });
@@ -36,15 +38,10 @@ var getServerDomain = function (url) {
     process.exit(1);
   }
 
-  // if (domain.endsWith("/"))
-  //   domain = domain.slice(0, -1); //cases like "domain.com/webadapter///" isn't handled at this point
-
   if (!domain.endsWith("/"))
     domain += "/";
 
   console.log("server domain is now " + domain);
-
-  createBundle(domain);
 
   return domain;
 };
@@ -56,12 +53,11 @@ var createBundle = function (serverDomain) {
   var outputFolder = path.join(__dirname, "output/extensions/jsapi-bundled");
   var outputFolderApi = path.join(outputFolder, "arcgis_js_api");
   var outputApiFilePaths = [path.join(outputFolderApi, "init.js"), path.join(outputFolderApi, "dojo/dojo.js")];
-  var placeholder = "[HOSTNAME_AND_PATH_TO_JSAPI]";
 
   // delete contents in the output folder. If the output folder doesn't exist, it will be created
   fs.emptyDirSync(outputFolder);
 
-  console.log("dir created");
+  console.log("dir created. Copying begins");
 
   // copy API and extensions to the output folder
   fs.copy(sourceFolder, outputFolder, function (err) {
@@ -70,43 +66,61 @@ var createBundle = function (serverDomain) {
       return;
     }
 
-    // replace text in files in the api
-    outputApiFilePaths.map(function (filePath) {
-      fs.readFile(filePath, "utf8", function (err, data) {
-        console.log("replacing " + filePath);
-        if (err) {
-          console.log("error reading " + filePath + ". Details: " + err);
-          return;
-        }
-
-        var updatedData = data.replace(placeholder, serverDomain);
-        fs.writeFile(filePath, updatedData, "utf8", function (err) {
-          if (err)
-            console.log("error writing into " + filePath + ". Details: " + err);
-        });
-      });
-
-      // replace text in files in extensions
-      fs.readdir(outputFolder, "utf8", function (err, paths) {
-        paths.map(function (path) {
-          if (fs.stat(path).isFile())
-            return;
-
-          if (path === outputFolderApi)
-            return;
-
-          
-        });
-      });
-
+    // replace text in files in the API
+    outputApiFilePaths.map(function (path) {
+      replaceText(path, serverDomain);
     });
 
+    // replace text in files in extensions
+    var extensionFiles = getExtensionFiles(outputFolder, outputFolderApi);
+    if (!extensionFiles) {
+      console.log("no extension file was found");
+      return;
+    }
+
+    extensionFiles.map(function (path) {
+      replaceText(path, serverDomain);
+    });
 
     // zip output folder
 
     // send download link in the output 
   });
+}
 
+function getExtensionFiles(folder, outputFolderApi, extensionFiles) {
+  extensionFiles = extensionFiles || [];
+
+  var dirs = fs.readdirSync(folder, "utf8");
+  dirs.map(function (dir) {
+    var contentPath = path.join(folder, dir);
+
+    if (contentPath.startsWith(outputFolderApi))
+      return;
+
+    if (fs.statSync(contentPath).isDirectory())
+      getExtensionFiles(contentPath, outputFolderApi, extensionFiles);
+    else
+      extensionFiles.push(contentPath);
+  });
+
+  return extensionFiles;
+}
+
+function replaceText(path, serverDomain) {
+  fs.readFile(path, "utf8", function (err, data) {
+    console.log("replacing " + path);
+    if (err) {
+      console.log("error reading " + path + ". Details: " + err);
+      return;
+    }
+
+    var updatedData = data.replace(/\[HOSTNAME_AND_PATH_TO_JSAPI\]/gi, serverDomain);
+    fs.writeFile(path, updatedData, "utf8", function (err) {
+      if (err)
+        console.log("error writing into " + path + ". Details: " + err);
+    });
+  });
 }
 
 // app.post('/api/comments', function(req, res) {
