@@ -5,6 +5,10 @@ var bodyParser = require('body-parser');
 var archiver = require("archiver");
 var app = express();
 
+var EXTENSIONS_DIR = "extensions";
+var BUNDLE_DIR = "jsapi-bundled";
+var JSAPI_DIR = "arcgis_js_api";
+
 app.set('port', (process.env.PORT || 3000));
 app.use('/', express.static(path.join(__dirname, '../app')));
 app.use(bodyParser.json());
@@ -22,30 +26,48 @@ app.listen(app.get('port'), function () {
 
 app.post('/submit', function (req, res) {
   var url = req.body.url.trim();
+  var isPortal = req.body.isPortalSelected;
+  console.log("request: " + url + ", " + isPortal)
 
-  var serverDomain = getServerDomain(url);
+  var serverUrl = getServerUrl(url, isPortal);
 
-  createBundle(serverDomain);
+  createBundle(serverUrl);
 
   res.json({
-    url: serverDomain
+    url: serverUrl
   });
 });
 
-function createServerUrl(url) {
-
-}
-
-function getServerDomain(url) {
+function getServerUrl(url, isPortal) {
   var domain = url.split("//")[1];
+
+  console.log("domain is: " + domain);
   if (!domain) {
     console.log("server domain cannot be determined");
     process.exit(1);
   }
 
-  domain = domain.endsWith("/") ? domain : domain += "/";
+  var url = appendSlash(domain);
 
-  console.log("server domain is now " + domain);
+  if (isPortal)
+    url += appendSlash("apps/dashboard");
+
+  url += appendSlash(EXTENSIONS_DIR) + appendSlash(BUNDLE_DIR) + appendSlash(JSAPI_DIR);
+
+  console.log("full url " + url);
+  return url;
+}
+
+function appendSlash(text) {
+  return text.endsWith("/") ? text : text += "/";
+}
+
+function getDomain(url) {
+  var domain = url.split("//")[1];
+  if (!domain) {
+    console.log("server domain cannot be determined");
+    process.exit(1);
+  }
 
   return domain;
 };

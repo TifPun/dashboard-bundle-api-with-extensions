@@ -12,12 +12,14 @@ module.exports = React.createClass({
   submitForm: function(event){
     event.preventDefault();
 
+    // todo add logic to capture isPortalSelected
     $.ajax({
       url: "/submit",
       dataType: 'json',
       type: 'POST',
       data: {
-        url: this.state.url
+        url: this.state.url,
+        isPortalSelected: true
       },
       success: function(data) {
         console.log(data.url);
