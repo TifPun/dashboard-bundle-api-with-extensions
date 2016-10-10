@@ -1,7 +1,7 @@
-var fs = require('fs-extra');
-var path = require('path');
-var express = require('express');
-var bodyParser = require('body-parser');
+var fs = require("fs-extra");
+var path = require("path");
+var express = require("express");
+var bodyParser = require("body-parser");
 var archiver = require("archiver");
 var app = express();
 
@@ -9,22 +9,22 @@ var EXTENSIONS_DIR = "extensions";
 var BUNDLE_DIR = "jsapi-bundled";
 var JSAPI_DIR = "arcgis_js_api";
 
-app.set('port', (process.env.PORT || 3000));
-app.use('/', express.static(path.join(__dirname, '../app')));
+app.set("port", (process.env.PORT || 3000));
+app.use("/", express.static(path.join(__dirname, "../app")));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use(function (req, res, next) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "no-cache");
   next();
 });
 
-app.listen(app.get('port'), function () {
-  console.log('Server started: http://localhost:' + app.get('port') + '/');
+app.listen(app.get("port"), function () {
+  console.log("Server started: http://localhost:" + app.get("port") + "/");
 });
 
-app.post('/submit', function (req, res) {
+app.post("/submit", function (req, res) {
   var url = req.body.url.trim();
   var isPortal = req.body.isPortalSelected;
   console.log("request: " + url + ", " + isPortal)
@@ -36,6 +36,11 @@ app.post('/submit', function (req, res) {
   res.json({
     url: serverUrl
   });
+});
+
+app.get("/downloadOutput", function(req, res){
+
+  res.send("downloading output");
 });
 
 function getServerUrl(url, isPortal) {
@@ -155,7 +160,7 @@ function replaceText(path, regex, newText) {
 }
 
 function zipOutput(folderToBundle, container, outputName) {
-  var archive = archiver('zip');
+  var archive = archiver("zip");
 
   var outputStructure = outputName + "/" + path.basename(folderToBundle);
   console.log("outputStructure " + outputStructure);
@@ -179,7 +184,7 @@ function zipOutput(folderToBundle, container, outputName) {
   });
 }
 
-// app.post('/api/comments', function(req, res) {
+// app.post("/api/comments", function(req, res) {
 //   fs.readFile(COMMENTS_FILE, function(err, data) {
 //     if (err) {
 //       console.error(err);
