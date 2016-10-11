@@ -29,18 +29,27 @@ app.post("/submit", function (req, res) {
   var isPortal = req.body.isPortalSelected;
   console.log("request: " + url + ", " + isPortal)
 
-  var serverUrl = getJsapiUrl(url, isPortal);
+  var jsapiUrl = getJsapiUrl(url, isPortal);
 
-  createBundle(serverUrl);
+  createBundle(jsapiUrl);
 
   res.json({
-    url: serverUrl
+    url: jsapiUrl
   });
 });
 
-app.get("/downloadOutput", function(req, res){
+app.get("/downloadOutput", function (req, res) {
 
-  res.send("downloading output");
+  // todo: update output folder name
+  var outputPath = path.join(__dirname, "output", "extensions.zip");
+  var readStream = fs.createReadStream(outputPath);
+  readStream.on("open", function () {
+    readStream.pipe(res);
+  });
+
+  readStream.on("error", function (err) {
+    res.end(err);
+  });
 });
 
 function getJsapiUrl(url, isPortal) {
@@ -53,35 +62,25 @@ function getJsapiUrl(url, isPortal) {
   }
 
   var webAdapter = isPortal ? "apps/dashboard" : "";
-  var jsapiUrl =  concatUrlParts([domain, webAdapter, EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
+  var jsapiUrl = concatUrlParts([domain, webAdapter, EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
 
   return jsapiUrl;
 }
 
-function concatUrlParts(urlParts){
+function concatUrlParts(urlParts) {
   var url = "";
 
-  urlParts.map(function(urlPart){
-    urlPart = urlPart.endsWith("/") ? urlPart : urlPart += "/"; 
+  urlParts.map(function (urlPart) {
+    urlPart = urlPart.endsWith("/") ? urlPart : urlPart += "/";
 
     url += urlPart;
   });
 
-  console.log("JSAPI url " + url);
+  return url;
 }
 
-function getDomain(url) {
-  var domain = url.split("//")[1];
-  if (!domain) {
-    console.log("server domain cannot be determined");
-    process.exit(1);
-  }
-
-  return domain;
-};
-
-function createBundle(serverDomain) {
-  console.log("bundling begins");
+function createBundle(jsapiUrl) {
+  console.log("bundling begins, JSAPI url " + jsapiUrl);
 
   var sourceFolder = path.join(__dirname, "data");
   var bundleContainerFolder = path.join(__dirname, "output");
@@ -106,7 +105,7 @@ function createBundle(serverDomain) {
 
     // replace text in files in the API
     apiFilePaths.map(function (path) {
-      replaceText(path, regex, serverDomain);
+      replaceText(path, regex, jsapiUrl);
     });
 
     // replace text in files in extensions
@@ -117,7 +116,7 @@ function createBundle(serverDomain) {
     }
 
     extensionFiles.map(function (path) {
-      replaceText(path, regex, serverDomain);
+      replaceText(path, regex, jsapiUrl);
     });
 
     console.log("finished replacing, zipping begins");
@@ -186,26 +185,3 @@ function zipFolder(folderToZip, containerFolder, outputName) {
     if (err) throw err;
   });
 }
-
-// app.post("/api/comments", function(req, res) {
-//   fs.readFile(COMMENTS_FILE, function(err, data) {
-//     if (err) {
-//       console.error(err);
-//       process.exit(1);
-//     }
-//     var comments = JSON.parse(data);
-//     var newComment = {
-//       id: Date.now(),
-//       author: req.body.author,
-//       text: req.body.text,
-//     };
-//     comments.push(newComment);
-//     fs.writeFile(COMMENTS_FILE, JSON.stringify(comments, null, 4), function(err) {
-//       if (err) {
-//         console.error(err);
-//         process.exit(1);
-//       }
-//       res.json(comments);
-//     });
-//   });
-// });
