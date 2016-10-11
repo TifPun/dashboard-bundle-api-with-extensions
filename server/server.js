@@ -29,7 +29,7 @@ app.post("/submit", function (req, res) {
   var isPortal = req.body.isPortalSelected;
   console.log("request: " + url + ", " + isPortal)
 
-  var serverUrl = getServerUrl(url, isPortal);
+  var serverUrl = getJsapiUrl(url, isPortal);
 
   createBundle(serverUrl);
 
@@ -43,7 +43,7 @@ app.get("/downloadOutput", function(req, res){
   res.send("downloading output");
 });
 
-function getServerUrl(url, isPortal) {
+function getJsapiUrl(url, isPortal) {
   var domain = url.split("//")[1];
 
   console.log("domain is: " + domain);
@@ -52,19 +52,22 @@ function getServerUrl(url, isPortal) {
     process.exit(1);
   }
 
-  var url = appendSlash(domain);
+  var webAdapter = isPortal ? "apps/dashboard" : "";
+  var jsapiUrl =  concatUrlParts([domain, webAdapter, EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
 
-  if (isPortal)
-    url += appendSlash("apps/dashboard");
-
-  url += appendSlash(EXTENSIONS_DIR) + appendSlash(BUNDLE_DIR) + appendSlash(JSAPI_DIR);
-
-  console.log("full url " + url);
-  return url;
+  return jsapiUrl;
 }
 
-function appendSlash(text) {
-  return text.endsWith("/") ? text : text += "/";
+function concatUrlParts(urlParts){
+  var url = "";
+
+  urlParts.map(function(urlPart){
+    urlPart = urlPart.endsWith("/") ? urlPart : urlPart += "/"; 
+
+    url += urlPart;
+  });
+
+  console.log("JSAPI url " + url);
 }
 
 function getDomain(url) {
@@ -81,20 +84,20 @@ function createBundle(serverDomain) {
   console.log("bundling begins");
 
   var sourceFolder = path.join(__dirname, "data");
-  var outputContainer = path.join(__dirname, "output");
-  var folderToBundle = path.join(outputContainer, "jsapi-bundled");
+  var bundleContainerFolder = path.join(__dirname, "output");
+  var folderToBundle = path.join(bundleContainerFolder, "jsapi-bundled");
   var apiFolder = path.join(folderToBundle, "arcgis_js_api");
   var apiFilePaths = [path.join(apiFolder, "init.js"), path.join(apiFolder, "dojo/dojo.js")];
   var regex = new RegExp(/\[HOSTNAME_AND_PATH_TO_JSAPI\]/, "gi");
   var outputName = "extensions";
 
-  // empty the content in the output folder without deleting the folder itself 
-  // the folder (and parent folder) will be created if not exists
-  fs.emptyDirSync(outputContainer);
+  // empty the content in the output's container folder without deleting the container itself 
+  // the container will be created if it does not exist
+  fs.emptyDirSync(bundleContainerFolder);
 
   console.log("dir emptied, copying begins");
 
-  // copy API and extensions to the output folder
+  // copy API and extensions to the folder which will be bundled
   fs.copy(sourceFolder, folderToBundle, function (err) {
     if (err) {
       console.log(err);
@@ -107,7 +110,7 @@ function createBundle(serverDomain) {
     });
 
     // replace text in files in extensions
-    var extensionFiles = getExtensionFiles(folderToBundle, apiFolder);
+    var extensionFiles = getFilePathsRecursive(folderToBundle, apiFolder);
     if (!extensionFiles) {
       console.log("no extension file was found");
       return;
@@ -119,28 +122,28 @@ function createBundle(serverDomain) {
 
     console.log("finished replacing, zipping begins");
 
-    // zip output folder
-    zipOutput(folderToBundle, outputContainer, outputName);
+    // zip the bundle folder and place it inside the container folder
+    zipFolder(folderToBundle, bundleContainerFolder, outputName);
   });
 }
 
-function getExtensionFiles(folderToBundle, excludeFolder, extensionFiles) {
-  extensionFiles = extensionFiles || [];
+function getFilePathsRecursive(folder, folderToExclude, filePaths) {
+  filePaths = filePaths || [];
 
-  var subFolder = fs.readdirSync(folderToBundle, "utf8");
+  var subFolder = fs.readdirSync(folder, "utf8");
   subFolder.map(function (subFolder) {
-    var subFolderPath = path.join(folderToBundle, subFolder);
+    var subFolderPath = path.join(folder, subFolder);
 
-    if (subFolderPath.startsWith(excludeFolder))
+    if (subFolderPath.startsWith(folderToExclude))
       return;
 
     if (fs.statSync(subFolderPath).isDirectory())
-      getExtensionFiles(subFolderPath, excludeFolder, extensionFiles);
+      getFilePathsRecursive(subFolderPath, folderToExclude, filePaths);
     else
-      extensionFiles.push(subFolderPath);
+      filePaths.push(subFolderPath);
   });
 
-  return extensionFiles;
+  return filePaths;
 }
 
 function replaceText(path, regex, newText) {
@@ -159,13 +162,13 @@ function replaceText(path, regex, newText) {
   });
 }
 
-function zipOutput(folderToBundle, container, outputName) {
+function zipFolder(folderToZip, containerFolder, outputName) {
   var archive = archiver("zip");
 
-  var outputStructure = outputName + "/" + path.basename(folderToBundle);
+  var outputStructure = outputName + "/" + path.basename(folderToZip);
   console.log("outputStructure " + outputStructure);
 
-  var output = fs.createWriteStream(path.join(container, outputName + ".zip"));
+  var output = fs.createWriteStream(path.join(containerFolder, outputName + ".zip"));
 
   output.on("close", function () {
     console.log(archive.pointer() + " total bytes have been zipped");
@@ -177,7 +180,7 @@ function zipOutput(folderToBundle, container, outputName) {
 
   archive.pipe(output);
 
-  archive.directory(folderToBundle, outputStructure);
+  archive.directory(folderToZip, outputStructure);
 
   archive.finalize(function (err, bytes) {
     if (err) throw err;
