@@ -26,13 +26,23 @@ app.listen(app.get("port"), function () {
 });
 
 app.post("/submit", function (req, res) {
+
+  var sourceFolder = path.join(__dirname, "data");
+  var bundleContainerFolder = path.join(__dirname, "output");
+  var folderToBundle = path.join(bundleContainerFolder, BUNDLE_DIR);
+
   var urlString = req.body.url.trim();
   var isPortal = req.body.isPortalSelected;
   console.log("request: " + urlString + ", " + isPortal)
 
   var jsapiUrl = getJsapiUrl(urlString, isPortal);
 
-  createBundle(jsapiUrl);
+  console.log("bundling begins, JSAPI url " + jsapiUrl);
+  createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFolder);
+
+  // zip the bundle folder and place it inside the container folder
+  console.log("finished replacing, zipping begins");
+  zip(folderToBundle, bundleContainerFolder, EXTENSIONS_DIR);
 
   res.json({
     url: jsapiUrl
@@ -81,29 +91,20 @@ function concatUrlParts(urlParts) {
   return url;
 }
 
-function createBundle(jsapiUrl) {
-  console.log("bundling begins, JSAPI url " + jsapiUrl);
-
-  var sourceFolder = path.join(__dirname, "data");
-  var bundleContainerFolder = path.join(__dirname, "output");
-  var folderToBundle = path.join(bundleContainerFolder, "jsapi-bundled");
-  var apiFolder = path.join(folderToBundle, "arcgis_js_api");
+function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFolder) {
+  var apiFolder = path.join(folderToBundle, JSAPI_DIR);
   var apiFilePaths = [path.join(apiFolder, "init.js"), path.join(apiFolder, "dojo/dojo.js")];
   var regex = new RegExp(/\[HOSTNAME_AND_PATH_TO_JSAPI\]/, "gi");
-  var outputName = "extensions";
 
-  // empty the content in the output's container folder without deleting the container itself 
-  // the container will be created if it does not exist
-  fs.emptyDirSync(bundleContainerFolder);
+  try {
+    // empty the content in the output's container folder without deleting the container itself 
+    // the container will be created if it does not exist
+    fs.emptyDirSync(bundleContainerFolder);
 
-  console.log("dir emptied, copying begins");
+    console.log("dir emptied, copying begins");
 
-  // copy API and extensions to the folder which will be bundled
-  fs.copy(sourceFolder, folderToBundle, function (err) {
-    if (err) {
-      console.log(err);
-      return;
-    }
+    // copy API and extensions to the folder which will be bundled
+    fs.copySync(sourceFolder, folderToBundle);
 
     // replace text in files in the API
     apiFilePaths.map(function (path) {
@@ -121,11 +122,9 @@ function createBundle(jsapiUrl) {
       replaceText(path, regex, jsapiUrl);
     });
 
-    console.log("finished replacing, zipping begins");
-
-    // zip the bundle folder and place it inside the container folder
-    zip(folderToBundle, bundleContainerFolder, outputName);
-  });
+  } catch (err) {
+    console.log(err);
+  }
 }
 
 function getFilePathsRecursive(folder, folderToExclude, filePaths) {
@@ -166,10 +165,14 @@ function replaceText(path, regex, newText) {
 function zip(folderToZip, containerFolder, outputName) {
   console.log("start  zipping");
   var lastZippedSize;
-  var zipFolderPath = path.join(containerFolder, outputName + ".zip");
+  var zipFilePath = path.join(containerFolder, outputName + ".zip");
 
-  
-  var writeStream = fs.createWriteStream(zipFolderPath);
+  if (fileExists(zipFilePath)) {
+    console.log("zip folder exists. deleting");
+    fs.removeSync(zipFilePath);
+  }
+
+  var writeStream = fs.createWriteStream(zipFilePath);
   // var zippingIsDone = false;
 
   writeStream.on("close", function () {
@@ -191,7 +194,7 @@ function zip(folderToZip, containerFolder, outputName) {
 
   archive.on("entry", function (obj) {
     lastZippedSize = archive.pointer();
-    console.log(archive.pointer() + " bytes zipped");
+    // console.log(archive.pointer() + " bytes zipped");
   })
 
   archive.pipe(writeStream);
@@ -206,25 +209,30 @@ function zip(folderToZip, containerFolder, outputName) {
     // if(zippingIsDone)
     //   return;
 
+    console.log("folders: " + folderToZip + ", " + containerFolder + ", " + outputName);
+    
     var currentZippedSize = archive.pointer();
-    if (currentZippedSize > lastZippedSize){
+    if (currentZippedSize > lastZippedSize) {
       lastZippedSize = currentZippedSize;
       console.log("========== currentZippedSize is now " + currentZippedSize);
     }
     else {
       console.log("========== no update, will zip again ");
-      fs.end(function(){
-        console.log("========== fs is ended");
-      });
+      try {
+        fs.closeSync();
+      } catch (err) {
+        console.log("========== error happens when closing fs");
+      }
       zip(folderToZip, containerFolder, outputName);
     }
-  }, 1000);
-
+  }, 2000);
 }
 
-function checkZippedFileSize(zippedSize) {
-  if (!zippedSize)
-    zippedSize = 0;
-
-
+function fileExists(file) {
+  try {
+    fs.accessSync(file);
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
