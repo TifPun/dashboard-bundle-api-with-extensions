@@ -4,11 +4,6 @@ var ControlLabel = require("react-bootstrap/lib/ControlLabel");
 var FormControl = require("react-bootstrap/lib/FormControl");
 
 module.exports = React.createClass({
-  // getInitialState: function(){
-  //   return {
-  //     url: ""
-  //   }
-  // },
 
   returnLabelText: function () {
     return this.props.isPortalSelected === true ?

@@ -3,3 +3,4 @@ build
 server/data
 server/output/extensions/jsapi-bundled
 server/output
+npm-debug.log

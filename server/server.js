@@ -3,6 +3,7 @@ var path = require("path");
 var express = require("express");
 var bodyParser = require("body-parser");
 var archiver = require("archiver");
+var url = require("url");
 var app = express();
 
 var EXTENSIONS_DIR = "extensions";
@@ -25,11 +26,11 @@ app.listen(app.get("port"), function () {
 });
 
 app.post("/submit", function (req, res) {
-  var url = req.body.url.trim();
+  var urlString = req.body.url.trim();
   var isPortal = req.body.isPortalSelected;
-  console.log("request: " + url + ", " + isPortal)
+  console.log("request: " + urlString + ", " + isPortal)
 
-  var jsapiUrl = getJsapiUrl(url, isPortal);
+  var jsapiUrl = getJsapiUrl(urlString, isPortal);
 
   createBundle(jsapiUrl);
 
@@ -52,17 +53,18 @@ app.get("/downloadOutput", function (req, res) {
   });
 });
 
-function getJsapiUrl(url, isPortal) {
-  var domain = url.split("//")[1];
+function getJsapiUrl(urlString, isPortal) {
+  var parsedUrl = url.parse(urlString, true, true);
 
-  console.log("domain is: " + domain);
-  if (!domain) {
-    console.log("server domain cannot be determined");
+  if (!parsedUrl || !parsedUrl.host) {
+    console.log("url is invalid");
     process.exit(1);
   }
+  var host = parsedUrl.host;
+  console.log("host is: " + host);
 
   var webAdapter = isPortal ? "apps/dashboard" : "";
-  var jsapiUrl = concatUrlParts([domain, webAdapter, EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
+  var jsapiUrl = concatUrlParts([host, webAdapter, EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
 
   return jsapiUrl;
 }
@@ -122,7 +124,7 @@ function createBundle(jsapiUrl) {
     console.log("finished replacing, zipping begins");
 
     // zip the bundle folder and place it inside the container folder
-    zipFolder(folderToBundle, bundleContainerFolder, outputName);
+    zip(folderToBundle, bundleContainerFolder, outputName);
   });
 }
 
@@ -161,27 +163,68 @@ function replaceText(path, regex, newText) {
   });
 }
 
-function zipFolder(folderToZip, containerFolder, outputName) {
-  var archive = archiver("zip");
+function zip(folderToZip, containerFolder, outputName) {
+  console.log("start  zipping");
+  var lastZippedSize;
+  var zipFolderPath = path.join(containerFolder, outputName + ".zip");
 
-  var outputStructure = outputName + "/" + path.basename(folderToZip);
-  console.log("outputStructure " + outputStructure);
+  
+  var writeStream = fs.createWriteStream(zipFolderPath);
+  // var zippingIsDone = false;
 
-  var output = fs.createWriteStream(path.join(containerFolder, outputName + ".zip"));
-
-  output.on("close", function () {
+  writeStream.on("close", function () {
+    // zippingIsDone = true;
     console.log(archive.pointer() + " total bytes have been zipped");
   });
 
+  writeStream.on("error", function () {
+    console.error("error occurred at writeStream");
+    fs.close();
+  })
+
+  var archive = archiver("zip", { level: 9 });
+
   archive.on("error", function (err) {
-    console.log("error occurred. Details " + err);
+    console.log("error occurred at arcihve. Details " + err);
+    fs.close();
   });
 
-  archive.pipe(output);
+  archive.on("entry", function (obj) {
+    lastZippedSize = archive.pointer();
+    console.log(archive.pointer() + " bytes zipped");
+  })
 
+  archive.pipe(writeStream);
+
+  var outputStructure = outputName + "/" + path.basename(folderToZip);
+  console.log("outputStructure " + outputStructure);
   archive.directory(folderToZip, outputStructure);
 
-  archive.finalize(function (err, bytes) {
-    if (err) throw err;
-  });
+  archive.finalize();
+
+  setTimeout(function (folderToZip, containerFolder, outputName) {
+    // if(zippingIsDone)
+    //   return;
+
+    var currentZippedSize = archive.pointer();
+    if (currentZippedSize > lastZippedSize){
+      lastZippedSize = currentZippedSize;
+      console.log("========== currentZippedSize is now " + currentZippedSize);
+    }
+    else {
+      console.log("========== no update, will zip again ");
+      fs.end(function(){
+        console.log("========== fs is ended");
+      });
+      zip(folderToZip, containerFolder, outputName);
+    }
+  }, 1000);
+
+}
+
+function checkZippedFileSize(zippedSize) {
+  if (!zippedSize)
+    zippedSize = 0;
+
+
 }

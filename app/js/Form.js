@@ -13,6 +13,7 @@ module.exports = React.createClass({
     event.preventDefault();
 
     // todo add logic to capture isPortalSelected
+    // todo: change url to urlString 
     $.ajax({
       url: "/submit",
       dataType: 'json',
