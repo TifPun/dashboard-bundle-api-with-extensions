@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server/server.js",
+    "startDebug": "node --inspect server/server.js",
     "build": "browserify -t [ babelify --presets [ react ] ] app/js/main.js -o app/build/app.js",
     "watch": "watchify -t [ babelify --presets [ react ] ] app/js/main.js -o app/build/app.js -v"
   },

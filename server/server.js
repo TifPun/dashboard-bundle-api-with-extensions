@@ -35,8 +35,8 @@ app.post("/submit", function (req, res) {
   var isPortal = req.body.isPortalSelected;
   console.log("request: " + urlString + ", " + isPortal)
 
+  // copy the source files to the output location, and update the path to the JSAPI
   var jsapiUrl = getJsapiUrl(urlString, isPortal);
-
   console.log("bundling begins, JSAPI url " + jsapiUrl);
   createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFolder);
 
@@ -153,7 +153,6 @@ function replaceText(path, regex, newText) {
       return;
     }
 
-    // var updatedData = data.replace(/\[HOSTNAME_AND_PATH_TO_JSAPI\]/gi, newText);
     var updatedData = data.replace(regex, newText);
     fs.writeFile(path, updatedData, "utf8", function (err) {
       if (err)
@@ -163,38 +162,34 @@ function replaceText(path, regex, newText) {
 }
 
 function zip(folderToZip, containerFolder, outputName) {
-  console.log("start  zipping");
-  var lastZippedSize;
+  console.log("start zipping");
+
+  var intervalId;
+  var lastZippedSize = -1;
   var zipFilePath = path.join(containerFolder, outputName + ".zip");
 
-  if (fileExists(zipFilePath)) {
-    console.log("zip folder exists. deleting");
-    fs.removeSync(zipFilePath);
-  }
-
+  // create the write stream
   var writeStream = fs.createWriteStream(zipFilePath);
-  // var zippingIsDone = false;
 
   writeStream.on("close", function () {
-    // zippingIsDone = true;
+    clearInterval(intervalId);
     console.log(archive.pointer() + " total bytes have been zipped");
   });
 
   writeStream.on("error", function () {
-    console.error("error occurred at writeStream");
-    fs.close();
+    console.error("error occurred at writeStream. Please try again");
+    return;
   })
 
+  // start zipping 
   var archive = archiver("zip", { level: 9 });
 
   archive.on("error", function (err) {
-    console.log("error occurred at arcihve. Details " + err);
-    fs.close();
+    console.log("error occurred at arcihve. Please try again");
   });
 
   archive.on("entry", function (obj) {
     lastZippedSize = archive.pointer();
-    // console.log(archive.pointer() + " bytes zipped");
   })
 
   archive.pipe(writeStream);
@@ -205,34 +200,17 @@ function zip(folderToZip, containerFolder, outputName) {
 
   archive.finalize();
 
-  setTimeout(function (folderToZip, containerFolder, outputName) {
-    // if(zippingIsDone)
-    //   return;
+  // kick off a timer to check if the zip process stops unexpectedly 
+  intervalId = setInterval(function () {
 
-    console.log("folders: " + folderToZip + ", " + containerFolder + ", " + outputName);
-    
     var currentZippedSize = archive.pointer();
-    if (currentZippedSize > lastZippedSize) {
+    console.log("========== currentZippedSize is now " + currentZippedSize);
+
+    if (currentZippedSize > lastZippedSize) 
       lastZippedSize = currentZippedSize;
-      console.log("========== currentZippedSize is now " + currentZippedSize);
-    }
     else {
       console.log("========== no update, will zip again ");
-      try {
-        fs.closeSync();
-      } catch (err) {
-        console.log("========== error happens when closing fs");
-      }
       zip(folderToZip, containerFolder, outputName);
     }
-  }, 2000);
-}
-
-function fileExists(file) {
-  try {
-    fs.accessSync(file);
-    return true;
-  } catch (err) {
-    return false;
-  }
+  }.bind(folderToZip, containerFolder, outputName), 2000);
 }
