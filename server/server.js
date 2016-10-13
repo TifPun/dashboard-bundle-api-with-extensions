@@ -5,12 +5,19 @@ var bodyParser = require("body-parser");
 var archiver = require("archiver");
 var url = require("url");
 var app = express();
+var server = require('http').Server(app);
+var io = require("socket.io")(server);
 
 var EXTENSIONS_DIR = "extensions";
 var BUNDLE_DIR = "jsapi-bundled";
 var JSAPI_DIR = "arcgis_js_api";
 
-app.set("port", (process.env.PORT || 3000));
+// use server.listen instead of app.listen(3000) or app.set("port", 3000) here. 
+// see https://github.com/socketio/socket.io/issues/2075
+server.listen((process.env.PORT || 3000), function(){
+  console.log("Server started: http://localhost:" + app.get("port") + "/");
+});
+
 app.use("/", express.static(path.join(__dirname, "../app")));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -21,8 +28,17 @@ app.use(function (req, res, next) {
   next();
 });
 
-app.listen(app.get("port"), function () {
-  console.log("Server started: http://localhost:" + app.get("port") + "/");
+
+app.get("/landing", function (req, res) {
+  res.send("arrived at landing page");
+});
+
+io.on('connection', function (socket) {
+   console.log( "A user connected." );
+  socket.emit('news', { hello: 'world' });
+  socket.on('my other event', function (data) {
+    console.log(data);
+  });
 });
 
 app.post("/submit", function (req, res) {
@@ -34,7 +50,7 @@ app.post("/submit", function (req, res) {
   var urlString = req.body.url.trim();
   var isPortal = req.body.isPortalSelected;
   console.log("request: " + urlString + ", " + isPortal);
-  
+
   // copy the source files to the output location, and update the path to the JSAPI
   var jsapiUrl = getJsapiUrl(urlString, isPortal);
   console.log("bundling begins, JSAPI url " + jsapiUrl);
@@ -51,7 +67,7 @@ app.post("/submit", function (req, res) {
   res.send({
     url: "zipping finishes"
   });
-  
+
 });
 
 app.get("/downloadOutput", function (req, res) {
