@@ -33,8 +33,8 @@ app.post("/submit", function (req, res) {
 
   var urlString = req.body.url.trim();
   var isPortal = req.body.isPortalSelected;
-  console.log("request: " + urlString + ", " + isPortal)
-
+  console.log("request: " + urlString + ", " + isPortal);
+  
   // copy the source files to the output location, and update the path to the JSAPI
   var jsapiUrl = getJsapiUrl(urlString, isPortal);
   console.log("bundling begins, JSAPI url " + jsapiUrl);
@@ -44,9 +44,14 @@ app.post("/submit", function (req, res) {
   console.log("finished replacing, zipping begins");
   zip(folderToBundle, bundleContainerFolder, EXTENSIONS_DIR);
 
-  res.json({
-    url: jsapiUrl
+  // res.send(JSON.stringify({
+  //   url: "zipping finishes"
+  // }));
+
+  res.send({
+    url: "zipping finishes"
   });
+  
 });
 
 app.get("/downloadOutput", function (req, res) {
@@ -206,7 +211,7 @@ function zip(folderToZip, containerFolder, outputName) {
     var currentZippedSize = archive.pointer();
     console.log("========== currentZippedSize is now " + currentZippedSize);
 
-    if (currentZippedSize > lastZippedSize) 
+    if (currentZippedSize > lastZippedSize)
       lastZippedSize = currentZippedSize;
     else {
       console.log("========== no update, will zip again ");

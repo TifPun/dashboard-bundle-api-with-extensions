@@ -23,10 +23,13 @@ module.exports = React.createClass({
         isPortalSelected: true
       },
       success: function(data) {
-        console.log(data.url);
+        // console.log(data.url);
+        console.log("got response from server: " + data);
       }.bind(this),
       error: function(xhr, status, err) {
-        console.error(this.props.url, status, err.toString());
+
+        // this.props.url, status, 
+        console.error("error from server: " + status + ", " + err.toString());
       }.bind(this)
     });
 
