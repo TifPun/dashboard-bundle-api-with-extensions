@@ -11,10 +11,10 @@ module.exports = React.createClass({
 
   componentDidMount: function () {
     var socket = io.connect('http://localhost:3000/');
-    socket.on('news', function (data) {
-      console.log(data);
-      socket.emit('my other event', { my: 'data' });
+    socket.on('talk', function (data) {
+      console.log("server fired talk event: " + data["message"]);
     });
+    socket.emit('talk', { message: 'hello from client' });
   },
 
   submitForm: function (event) {

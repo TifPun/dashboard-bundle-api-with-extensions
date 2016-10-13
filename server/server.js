@@ -6,17 +6,24 @@ var archiver = require("archiver");
 var url = require("url");
 var app = express();
 var server = require('http').Server(app);
+
+// Method 1
+// var io = require("socket.io").listen(server);
+// app.set("port", (process.env.PORT || 3000));
+// var server = app.listen(app.get("port"), function(){
+//   console.log("Server started: http://localhost:" + app.get("port") + "/");
+// })
+
+// Method 2
+// see https://github.com/socketio/socket.io/issues/2075
 var io = require("socket.io")(server);
+server.listen((process.env.PORT || 3000), function () {
+  console.log("Server started: http://localhost:" + app.get("port") + "/");
+});
 
 var EXTENSIONS_DIR = "extensions";
 var BUNDLE_DIR = "jsapi-bundled";
 var JSAPI_DIR = "arcgis_js_api";
-
-// use server.listen instead of app.listen(3000) or app.set("port", 3000) here. 
-// see https://github.com/socketio/socket.io/issues/2075
-server.listen((process.env.PORT || 3000), function(){
-  console.log("Server started: http://localhost:" + app.get("port") + "/");
-});
 
 app.use("/", express.static(path.join(__dirname, "../app")));
 app.use(bodyParser.json());
@@ -28,17 +35,11 @@ app.use(function (req, res, next) {
   next();
 });
 
-
-app.get("/landing", function (req, res) {
-  res.send("arrived at landing page");
-});
-
 io.on('connection', function (socket) {
-   console.log( "A user connected." );
-  socket.emit('news', { hello: 'world' });
-  socket.on('my other event', function (data) {
-    console.log(data);
+  socket.on('talk', function (data) {
+    console.log("client fired talk event: " + data["message"]);
   });
+  socket.emit('talk', { message: 'hello from server' });
 });
 
 app.post("/submit", function (req, res) {
