@@ -1,3 +1,5 @@
+// https://www.tutorialspoint.com/socket.io/socket.io_broadcasting.htm
+
 var app = require("express")();
 var server = require("http").Server(app);
 var io = require("socket.io")(server);  // new socket.io instance attaching to the server
@@ -12,6 +14,12 @@ app.get("/", function (req, res) {
   });
 });
 
+var nsp = io.of("/my-namespace");
+nsp.on("connection", function(socket){
+  console.log("someone connected to nsp");
+  socket.emit("hi", { description: "NSP namespace. Hi client" });
+});
+
 var clients = 0;
 
 io.on("connection", function (socket) {
@@ -19,32 +27,32 @@ io.on("connection", function (socket) {
 
   console.log("a user connected");
 
-  setTimeout(function () {
+  // setTimeout(function () {
     // socket.send("send a message 4s after connection");
     // send to whoever subscribed to this event
-    socket.emit("testerEvent", {
-      description: "server sent a custom event"
-    })
-  }, 4000);
+    // socket.emit("testerEvent", {
+    //   description: "server sent a custom event"
+    // });
+  // }, 4000);
 
   // broadcast to all clients
   // io.sockets.emit("broadcast", {
   //   description: clients + " clients connected"
   // });
 
-  // emil to the newly connected client
-  socket.emit("newclientconnect", { description: "Welcome new client connection" });
+  // // emil to the newly connected client
+  socket.emit("hi", { description: "Default namespace. Welcome new client connection" });
 
-  // broadcast to all clients except the newly connected client
-  socket.broadcast.emit("newclientconnect", { description: clients + " clients connected" });
+  // // broadcast to all clients except the newly connected client
+  // socket.broadcast.emit("newclientconnect", { description: clients + " clients connected" });
 
-  socket.on("clientEvent", function (data) {
-    console.log(data.description);
-  });
+  // socket.on("clientEvent", function (data) {
+  //   console.log(data.description);
+  // });
 
   socket.on("disconnect", function () {
     clients--;
-    socket.broadcast.emit("newclientconnect", { description: clients + " clients connected" });
+    // socket.broadcast.emit("newclientconnect", { description: clients + " clients connected" });
     console.log("a user disconnected");
   });
 
@@ -53,7 +61,3 @@ io.on("connection", function (socket) {
 server.listen(3000, function () {
   console.log("listening on port 3000");
 });
-
-// server               client
-// socket.send("message")      socket.on("message", function(message){})
-// socket.emit("event1", {})  socket.on("event1", function(data){})

@@ -8,25 +8,32 @@
 <script>
     var socket = io();
 
+    var socketNsp = io("/my-namespace");
+     socketNsp.on("hi", function(data){
+			  document.body.innerHTML += '<br/>' + data.description;
+	  });
+
     // socket.on("message", function(data){
     //   document.write(data);
-    socket.on("testerEvent", function(data){
-      document.body.innerHTML = "";
-      document.write(data.description);
-    });
 
-    socket.on("broadcast", function(data){
-      document.body.innerHTML = "";
-      document.write(data.description);
-    });
+    // socket.on("testerEvent", function(data){
+    //   document.body.innerHTML = "";
+    //   document.write(data.description);
+    // });
 
-    socket.emit("clientEvent", {
-      description: "Sent an event from client"
-    });
+    // socket.on("broadcast", function(data){
+    //   document.body.innerHTML = "";
+    //   document.write(data.description);
+    // });
 
-     socket.on('newclientconnect',function(data){
-			  document.body.innerHTML = '';
-			  document.write(data.description);
+    // socket.emit("clientEvent", {
+    //   description: "Sent an event from client"
+    // });
+
+    // default client
+     socket.on('hi',function(data){
+			  document.body.innerHTML += '<br/>' + data.description;
+			  // document.write(data.description);
 	  });
 </script>
 
