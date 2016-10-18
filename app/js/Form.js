@@ -11,10 +11,9 @@ module.exports = React.createClass({
 
   componentDidMount: function () {
     var socket = io.connect('http://localhost:3000/');
-    socket.on('talk', function (data) {
-      console.log("server fired talk event: " + data["message"]);
+    socket.on('update', function (data) {
+      console.log("update: " + data.message);
     });
-    socket.emit('talk', { message: 'hello from client' });
   },
 
   submitForm: function (event) {
@@ -32,7 +31,7 @@ module.exports = React.createClass({
       },
       success: function (data) {
         // console.log(data.url);
-        console.log("got response from server: " + data);
+        console.log("Form submission completed. Server replies: " + data.url);
       }.bind(this),
       error: function (xhr, status, err) {
 
