@@ -46,7 +46,7 @@ app.post("/submit", function (req, res) {
   var bundleContainerFolder = path.join(__dirname, "output");
   var folderToBundle = path.join(bundleContainerFolder, BUNDLE_DIR);
 
-  var urlString = req.body.url.trim();
+  var urlString = req.body.urlString.trim();
   var isPortal = req.body.isPortalSelected;
 
   res.send({

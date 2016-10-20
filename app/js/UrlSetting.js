@@ -43,9 +43,6 @@ module.exports = React.createClass({
   onUrlChange: function (event) {
     var url = event.target.value;
 
-    var validateOk = this.validateUrl(url); 
-    // console.log("validateOK " + validateOk);
-
     if (this.validateUrl(url))
       this.props.onUrlChange(url);
     else 

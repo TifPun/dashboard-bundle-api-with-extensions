@@ -13,10 +13,34 @@ module.exports = React.createClass({
   },
 
   onServerOptionChanged: function (event) {
-    this.setState({
-      isPortalSelected: event.target.id === "portal"
-    });
+    this.state.isPortalSelected = event.target.id === "portal";
+
+    // this.setState({
+    //   isPortalSelected: event.target.id === "portal"
+    // });
+
+    this.props.selectEnvironment(this.state.isPortalSelected);
   },
+
+  render: function () {
+    // <UrlSetting isPortalSelected={this.state.isPortalSelected} handleUrlChange={this.props.setServerUrl} /> 
+    return (
+      <FormGroup controlId="serverSettings" >
+        <ControlLabel > Choose where the extensions will be hosted</ControlLabel>
+        <FormGroup >
+          <Radio inline name="serverOption" id="portal" checked={this.state.isPortalSelected} onChange={this.onServerOptionChanged} >
+            ArcGIS Portal
+          </Radio>
+          <Radio inline name="serverOption" id="webServer" checked={!this.state.isPortalSelected} onChange={this.onServerOptionChanged} >
+            Web server
+          </Radio>
+        </FormGroup>
+
+        <UrlSetting isPortalSelected={this.state.isPortalSelected} onUrlChange={this.props.setServerUrl} />
+      </FormGroup>
+    );
+  }
+});
 
   // validateUrl: function (url) {
   //   // check if the url doesn't start with either http or https
@@ -52,23 +76,3 @@ module.exports = React.createClass({
 
   //   this.props.setServerUrl(url);
   // },
-
-  render: function () {
-    // <UrlSetting isPortalSelected={this.state.isPortalSelected} handleUrlChange={this.props.setServerUrl} /> 
-    return (
-      <FormGroup controlId = "serverSettings" >
-        <ControlLabel > Choose where the extensions will be hosted</ControlLabel>
-        <FormGroup >
-          <Radio inline name = "serverOption" id = "portal" checked = { this.state.isPortalSelected } onChange = { this.onServerOptionChanged } >
-            ArcGIS Portal
-          </Radio>
-          <Radio inline name = "serverOption" id = "webServer" checked = { !this.state.isPortalSelected } onChange = { this.onServerOptionChanged } >
-            Web server
-          </Radio>
-        </FormGroup>
-
-        <UrlSetting isPortalSelected={this.state.isPortalSelected} onUrlChange={this.props.setServerUrl} />
-      </FormGroup>
-    );
-  }
-});
