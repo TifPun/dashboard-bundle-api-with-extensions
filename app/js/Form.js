@@ -31,7 +31,7 @@ module.exports = React.createClass({
       },
       success: function (data) {
         // console.log(data.url);
-        console.log("Form submission completed. Server replies: " + data.url);
+        console.log("Form submission completed. Server replies: " + data.message);
       }.bind(this),
       error: function (xhr, status, err) {
 

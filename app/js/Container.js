@@ -8,7 +8,7 @@ module.exports = React.createClass({
   render: function(){
     return (
       <div className="container">
-        <PageHeader>bundlr <br/> <small>(Bundles ArcGIS JSAPI with Ops Dashboard extensions)</small></PageHeader>
+        <PageHeader>bundlr <br/> <small>(Bundle ArcGIS JSAPI with Ops Dashboard extensions)</small></PageHeader>
         <Jumbotron>
           <Form />
         </Jumbotron>

@@ -50,25 +50,27 @@ app.post("/submit", function (req, res) {
   var isPortal = req.body.isPortalSelected;
 
   res.send({
-    url: "Bundling begins"
+    message: `Bundling begins`
   });
 
-  // copy the source files to the output location, and update the path to the JSAPI
+  // copy the source files to the output location, and update the JSAPI path
   var jsapiUrl = getJsapiUrl(urlString, isPortal);
-  socket.emit("update", { message: "1 -- start copying + renaming" });
-  console.log("1 -- start copying + renaming");
+  socket.emit("update", { message: `start bundling` });
+  console.log("start bundling");
   createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFolder).then(
     function (result) {
       if (!result)
-        console.log("1 error occurred when creating a bundle, please retry.");
+        console.log(`error occurred when creating a bundle, please retry.`);
 
       // zip the bundle folder and place it inside the container folder
-      socket.emit("update", { message: "2 -- start zipping" });
-      console.log("2 -- start zipping");
+      socket.emit("update", { message: `bundling is done, start zipping` });
+      console.log(`bundling is done, start zipping`);
       zip(folderToBundle, bundleContainerFolder, EXTENSIONS_DIR);
 
+      socket.emit("bundlingCompleted", { message: `process completed` })
+      console.log(`process completed`);
     }, function (err) {
-      console.log("2 error occurred when creating a bundle, please retry.");
+      console.log(`error occurred when creating a bundle, please retry.`);
     });
 
 });
@@ -91,11 +93,10 @@ function getJsapiUrl(urlString, isPortal) {
   var parsedUrl = url.parse(urlString, true, true);
 
   if (!parsedUrl || !parsedUrl.host) {
-    console.log("url is invalid");
+    console.log(`url is invalid`);
     process.exit(1);
   }
   var host = parsedUrl.host;
-  // console.log("host is: " + host);
 
   var webAdapter = isPortal ? "apps/dashboard" : "";
   var jsapiUrl = concatUrlParts([host, webAdapter, EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
@@ -125,14 +126,14 @@ function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFol
     // the container will be created if it does not existß
     fs.emptydir(bundleContainerFolder, function (err) {
       if (err) {
-        console.log("error occurred wehn deleting previous files. Details: " + err);
+        console.log(`error occurred when deleting previous output, details: ${err}`);
         reject(false);
       }
 
       // copy API and extensions to the folder which will be bundled
       fs.copy(sourceFolder, folderToBundle, function (err) {
         if (err) {
-          console.log("error occurred wehn copying. Details: " + err);
+          console.log(`error occurred when copying, details: ${err}`);
           reject(false);
         }
 
@@ -142,14 +143,13 @@ function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFol
         });
 
         var extensionFiles = getFilePathsRecursive(folderToBundle, apiFolder);
-        if (!extensionFiles) {
-          console.log("no extension file was found");
-          return;
+        if (!extensionFiles)
+          console.log(`no extension file was found`);
+        else {
+          extensionFiles.map(function (path) {
+            replaceText(path, regex, jsapiUrl);
+          });
         }
-
-        extensionFiles.map(function (path) {
-          replaceText(path, regex, jsapiUrl);
-        });
 
         resolve(true);
       });
@@ -179,21 +179,19 @@ function getFilePathsRecursive(folder, folderToExclude, filePaths) {
 function replaceText(path, regex, newText) {
   fs.readFile(path, "utf8", function (err, data) {
     if (err) {
-      console.log("error reading " + path + ". Details: " + err);
+      console.log("error reading " + path + ", details: " + err);
       return;
     }
 
     var updatedData = data.replace(regex, newText);
     fs.writeFile(path, updatedData, "utf8", function (err) {
       if (err)
-        console.log("error writing into " + path + ". Details: " + err);
+        console.log("error writing into " + path + ", details: " + err);
     });
   });
 }
 
 function zip(folderToZip, containerFolder, outputName) {
-  // console.log("start zipping");
-
   var intervalId;
   var lastZippedSize = -1;
   var zipFilePath = path.join(containerFolder, outputName + ".zip");
@@ -202,15 +200,14 @@ function zip(folderToZip, containerFolder, outputName) {
   var writeStream = fs.createWriteStream(zipFilePath);
 
   writeStream.on("close", function () {
-    // clearInterval(intervalId);
-    // console.log(archive.pointer() + " total bytes have been zipped");
+    clearInterval(intervalId);
 
-    socket.emit("update", { message: "3 -- all done" });
-    console.log("3 -- all done. " + archive.pointer() + " total bytes have been zipped");
+    socket.emit("update", { message: `zipping done. ${archive.pointer()} total bytes have been zipped` });
+    console.log(`zipping done. ${archive.pointer()} total bytes have been zipped`);
   });
 
   writeStream.on("error", function () {
-    console.error("error occurred at writeStream. Please try again");
+    console.error(`error occurred at writeStream. Please try again`);
     return;
   })
 
@@ -219,7 +216,7 @@ function zip(folderToZip, containerFolder, outputName) {
 
   archive.on("error", function (err) {
     fs.emptyDirSync(containerFolder);
-    console.log("error occurred at arcihve. Please try again");
+    console.log(`error occurred at arcihve. Please try again`);
   });
 
   archive.on("entry", function (obj) {
@@ -229,22 +226,22 @@ function zip(folderToZip, containerFolder, outputName) {
   archive.pipe(writeStream);
 
   var outputStructure = outputName + "/" + path.basename(folderToZip);
-  // console.log("outputStructure " + outputStructure);
   archive.directory(folderToZip, outputStructure);
 
   archive.finalize();
 
-  // // kick off a timer to check if the zip process stops unexpectedly 
-  // intervalId = setInterval(function () {
+  // kick off a timer to check if the zip process stops unexpectedly 
+  intervalId = setInterval(function () {
 
-  //   var currentZippedSize = archive.pointer();
-  //   console.log("========== currentZippedSize is now " + currentZippedSize);
+    var currentZippedSize = archive.pointer();
+    socket.emit("update", { message: `${currentZippedSize} bytes of data have been zipped` });
 
-  //   if (currentZippedSize > lastZippedSize)
-  //     lastZippedSize = currentZippedSize;
-  //   else {
-  //     console.log("========== no update, will zip again ");
-  //     zip(folderToZip, containerFolder, outputName);
-  //   }
-  // }.bind(folderToZip, containerFolder, outputName), 2000);
+    if (currentZippedSize > lastZippedSize)
+      lastZippedSize = currentZippedSize;
+    else {
+      socket.emit("update", { message: `error occurred, retrying to zip` });
+      console.log(`error occurred, retrying to zip`);
+      zip(folderToZip, containerFolder, outputName);
+    }
+  }.bind(folderToZip, containerFolder, outputName), 2000);
 }
