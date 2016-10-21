@@ -47,10 +47,6 @@ module.exports = React.createClass({
       this.props.onUrlChange(url);
     else 
       this.props.onUrlChange();
-
-    // this.setState({
-    //   url: ""
-    // })
   },
 
   render: function () {

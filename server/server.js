@@ -46,12 +46,15 @@ app.post("/submit", function (req, res) {
   var bundleContainerFolder = path.join(__dirname, "output");
   var folderToBundle = path.join(bundleContainerFolder, BUNDLE_DIR);
 
+  if (!req.body || !req.body.urlString)
+    res.status(400).send({ message: `request contains invalid parameters. Make sure URL is not empty` }); 
+  else {
+    res.status(200).send({ message: `bundling begins` });   
+    return;
+  }
+
   var urlString = req.body.urlString.trim();
   var isPortal = req.body.isPortalSelected;
-
-  res.send({
-    message: `Bundling begins`
-  });
 
   // copy the source files to the output location, and update the JSAPI path
   var jsapiUrl = getJsapiUrl(urlString, isPortal);
@@ -126,14 +129,14 @@ function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFol
     // the container will be created if it does not existß
     fs.emptydir(bundleContainerFolder, function (err) {
       if (err) {
-        console.log(`error occurred when deleting previous output, details: ${err}`);
+        console.log(`error occurred when deleting previous output. Details: ${err}`);
         reject(false);
       }
 
       // copy API and extensions to the folder which will be bundled
       fs.copy(sourceFolder, folderToBundle, function (err) {
         if (err) {
-          console.log(`error occurred when copying, details: ${err}`);
+          console.log(`error occurred when copying. Details: ${err}`);
           reject(false);
         }
 

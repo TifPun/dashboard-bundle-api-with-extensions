@@ -13,8 +13,7 @@ module.exports = React.createClass({
   componentDidMount: function () {
     var socket = io.connect('http://localhost:3000/');
     socket.on('update', function (data) {
-      if (data)
-        this.showServerMessage(data.message); 
+      this.showServerMessage(data);
     }.bind(this));
   },
 
@@ -30,8 +29,9 @@ module.exports = React.createClass({
     });
   },
 
-  showServerMessage: function (message) {
-    this.props.showServerMessage(message);
+  showServerMessage: function (data) {
+    if (data && data.message)
+      this.props.showServerMessage(data.message);
   },
 
   submitForm: function (event) {
@@ -46,11 +46,14 @@ module.exports = React.createClass({
         isPortalSelected: true
       },
       success: function (data) {
-        console.log("Form submission completed. Server replies: " + data.message);
+        this.showServerMessage(data);
       }.bind(this),
       error: function (xhr, status, err) {
-        // code missing from server side 
-        console.error("error from server: " + status + ", " + err.toString());
+        // todo: need to revise if this is a good way to handle error 
+        // read: 
+        // https://webapplog.com/error-handling-and-running-an-express-js-app/
+        // http://stackoverflow.com/questions/20902144/sending-custom-error-message-from-express-js-over-to-backbone
+        this.showServerMessage(xhr.responseJSON);
       }.bind(this)
     });
   },
