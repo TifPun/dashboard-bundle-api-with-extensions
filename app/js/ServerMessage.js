@@ -1,14 +1,16 @@
 var React = require("react");
 var FormGroup = require("react-bootstrap/lib/FormGroup");
-var ControlLabel = require("react-bootstrap/lib/ControlLabel");
+var FormControl = require("react-bootstrap/lib/FormControl");
 
 module.exports = React.createClass({
 
   render: function () {
     return (
-      <div>
-        <h4> Bundling begins</h4>
-      </div>
+      <FormGroup controlId="serverMessage">
+        <FormControl.Static>
+          {this.props.message}
+        </FormControl.Static>
+      </FormGroup>
     );
   }
 })

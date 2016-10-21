@@ -11,10 +11,11 @@ module.exports = React.createClass({
   },
 
   componentDidMount: function () {
-    // var socket = io.connect('http://localhost:3000/');
-    // socket.on('update', function (data) {
-    //   console.log("update: " + data.message);
-    // });
+    var socket = io.connect('http://localhost:3000/');
+    socket.on('update', function (data) {
+      if (data)
+        this.showServerMessage(data.message); 
+    }.bind(this));
   },
 
   selectEnvironment: function (isPortalSelected) {
@@ -27,6 +28,10 @@ module.exports = React.createClass({
     this.setState({
       urlString: url
     });
+  },
+
+  showServerMessage: function (message) {
+    this.props.showServerMessage(message);
   },
 
   submitForm: function (event) {
@@ -54,7 +59,7 @@ module.exports = React.createClass({
     return (
       <form onSubmit={this.submitForm}>
         <ServerSettings setServerUrl={this.setServerUrl} selectEnvironment={this.selectEnvironment} />
-        <Button type="submit" disabled={!this.state.url} >Submit</Button>
+        <Button type="submit" disabled={!this.state.urlString} >Submit</Button>
       </form>
     );
   }
