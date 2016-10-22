@@ -47,7 +47,7 @@ app.post("/submit", function (req, res) {
   var folderToBundle = path.join(bundleContainerFolder, BUNDLE_DIR);
 
   if (!req.body || !req.body.urlString)
-    res.status(400).send({ message: `request contains invalid parameters. Make sure URL is not empty` }); 
+    res.status(400).send({ message: `request contains invalid parameters. Make sure URL is correct` }); 
   else {
     res.status(200).send({ message: `bundling begins` });   
     return;

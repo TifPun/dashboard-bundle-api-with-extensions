@@ -15,15 +15,10 @@ module.exports = React.createClass({
   onServerOptionChanged: function (event) {
     this.state.isPortalSelected = event.target.id === "portal";
 
-    // this.setState({
-    //   isPortalSelected: event.target.id === "portal"
-    // });
-
     this.props.selectEnvironment(this.state.isPortalSelected);
   },
 
   render: function () {
-    // <UrlSetting isPortalSelected={this.state.isPortalSelected} handleUrlChange={this.props.setServerUrl} /> 
     return (
       <FormGroup controlId="serverSettings" >
         <ControlLabel > Choose where the extensions will be hosted</ControlLabel>
@@ -41,38 +36,3 @@ module.exports = React.createClass({
     );
   }
 });
-
-  // validateUrl: function (url) {
-  //   // check if the url doesn't start with either http or https
-  //   if (!url.startsWith("https:") && !url.startsWith("http:")) {
-  //     this.props.setServerUrl();
-  //     return;
-  //   }
-
-  //   // check if the URL contains a domain
-  //   var urlDomain = url.split("//")[1];
-  //   if (!urlDomain) {
-  //     this.props.setServerUrl();
-  //     return;
-  //   }
-
-  //   // validation is successful at this point if the host is a web server
-  //   if (!this.state.isPortalSelected) {
-  //     this.props.setServerUrl(url);
-  //     return;
-  //   }
-
-  //   // check if the portal URL contains a domain portion and a web adapter portion  
-  //   if (urlDomain.indexOf("/") === -1) {
-  //     this.props.setServerUrl();
-  //     return;
-  //   }
-
-  //   // check if the web adapter portion is missing
-  //   if (!urlDomain.split("/")[1]) {
-  //     this.props.setServerUrl();
-  //     return;
-  //   }
-
-  //   this.props.setServerUrl(url);
-  // },

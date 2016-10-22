@@ -1,8 +1,5 @@
 var React = require("react");
-// var Well = require("react-bootstrap/lib/Well");
 var PageHeader = require("react-bootstrap/lib/PageHeader"); 
-// var UserConfig = require("./UserConfig"); 
-// var ServerMessage = require("./ServerMessage");
 var BundleTool = require("./BundleTool");
 
 module.exports = React.createClass({
