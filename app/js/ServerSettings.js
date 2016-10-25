@@ -13,6 +13,7 @@ module.exports = React.createClass({
   },
 
   onServerOptionChanged: function (event) {
+    // todo: investigate why this.setState() doesn't work
     this.state.isPortalSelected = event.target.id === "portal";
 
     this.props.selectEnvironment(this.state.isPortalSelected);

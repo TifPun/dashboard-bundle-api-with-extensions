@@ -12,7 +12,7 @@ module.exports = React.createClass({
 
   showServerMessage: function(_serverMessage){
     this.setState({
-      serverMessage: _serverMessage.charAt(0).toUpperCase() + _serverMessage.slice(0)
+      serverMessage: _serverMessage.charAt(0).toUpperCase() + _serverMessage.slice(1)
     })
   },
 

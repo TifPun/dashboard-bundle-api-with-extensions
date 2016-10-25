@@ -46,10 +46,10 @@ app.post("/submit", function (req, res) {
   var bundleContainerFolder = path.join(__dirname, "output");
   var folderToBundle = path.join(bundleContainerFolder, BUNDLE_DIR);
 
-  if (!req.body || !req.body.urlString)
-    res.status(400).send({ message: `request contains invalid parameters. Make sure URL is correct` }); 
+  if (req.body && req.body.urlString)
+    res.status(200).send({ message: `bundling begins` });
   else {
-    res.status(200).send({ message: `bundling begins` });   
+    res.status(400).send({ message: `request contains invalid parameters. Make sure URL is correct` });
     return;
   }
 
@@ -62,8 +62,10 @@ app.post("/submit", function (req, res) {
   console.log("start bundling");
   createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFolder).then(
     function (result) {
-      if (!result)
-        console.log(`error occurred when creating a bundle, please retry.`);
+      if (!result) {
+        socket.emit("update", { message: `error occurred when creating a bundle, please retry.` })
+        console.log(`error occurred when creating the bundle, please retry.`);
+      }
 
       // zip the bundle folder and place it inside the container folder
       socket.emit("update", { message: `bundling is done, start zipping` });
@@ -73,7 +75,8 @@ app.post("/submit", function (req, res) {
       socket.emit("bundlingCompleted", { message: `process completed` })
       console.log(`process completed`);
     }, function (err) {
-      console.log(`error occurred when creating a bundle, please retry.`);
+      socket.emit("update", { message: `error occurred when creating a bundle, please retry.` })
+      console.log(`error occurred when creating the bundle, please retry.`);
     });
 
 });
@@ -125,8 +128,9 @@ function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFol
   var regex = new RegExp(/\[HOSTNAME_AND_PATH_TO_JSAPI\]/, "gi");
 
   return new Promise(function (resolve, reject) {
+    
     // empty the content in the output's container folder without deleting the container itself 
-    // the container will be created if it does not existß
+    // the container will be created if it does not exist
     fs.emptydir(bundleContainerFolder, function (err) {
       if (err) {
         console.log(`error occurred when deleting previous output. Details: ${err}`);
@@ -136,7 +140,7 @@ function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFol
       // copy API and extensions to the folder which will be bundled
       fs.copy(sourceFolder, folderToBundle, function (err) {
         if (err) {
-          console.log(`error occurred when copying. Details: ${err}`);
+          console.log(`error occurred when copying. Make sure files exist in the source location`);
           reject(false);
         }
 
@@ -196,55 +200,74 @@ function replaceText(path, regex, newText) {
 
 function zip(folderToZip, containerFolder, outputName) {
   var intervalId;
+  var retryAttempt = 0;
   var lastZippedSize = -1;
   var zipFilePath = path.join(containerFolder, outputName + ".zip");
 
-  // create the write stream
-  var writeStream = fs.createWriteStream(zipFilePath);
+  try {
+    fs.accessSync(folderToZip);
 
-  writeStream.on("close", function () {
-    clearInterval(intervalId);
+    // create the write stream
+    var writeStream = fs.createWriteStream(zipFilePath);
 
-    socket.emit("update", { message: `zipping done. ${archive.pointer()} total bytes have been zipped` });
-    console.log(`zipping done. ${archive.pointer()} total bytes have been zipped`);
-  });
+    writeStream.on("close", function () {
+      clearInterval(intervalId);
+      retryAttempt = 0;
 
-  writeStream.on("error", function () {
-    console.error(`error occurred at writeStream. Please try again`);
-    return;
-  })
+      socket.emit("update", { message: `zipping done. ${archive.pointer()} total bytes have been zipped` });
+      console.log(`zipping is done. ${archive.pointer()} total bytes have been zipped`);
+    });
 
-  // start zipping 
-  var archive = archiver("zip", { level: 9 });
+    writeStream.on("error", function () {
+      socket.emit("update", { message: `error occurred during zipping. Please try again` });
+      console.error(`error occurred at writeStream. Please try again`);
+      return;
+    })
 
-  archive.on("error", function (err) {
-    fs.emptyDirSync(containerFolder);
-    console.log(`error occurred at arcihve. Please try again`);
-  });
+    // start zipping 
+    var archive = archiver("zip", { level: 9 });
 
-  archive.on("entry", function (obj) {
-    lastZippedSize = archive.pointer();
-  })
+    archive.on("error", function (err) {
+      fs.emptyDirSync(containerFolder);
+      socket.emit("update", { message: `error occurred during zipping. Please try again` });
+      console.log(`error occurred during zipping. Please try again`);
+      return;
+    });
 
-  archive.pipe(writeStream);
+    archive.on("entry", function (obj) {
+      lastZippedSize = archive.pointer();
+    })
 
-  var outputStructure = outputName + "/" + path.basename(folderToZip);
-  archive.directory(folderToZip, outputStructure);
+    archive.pipe(writeStream);
 
-  archive.finalize();
+    var outputStructure = outputName + "/" + path.basename(folderToZip);
+    archive.directory(folderToZip, outputStructure);
 
-  // kick off a timer to check if the zip process stops unexpectedly 
-  intervalId = setInterval(function () {
+    archive.finalize();
 
-    var currentZippedSize = archive.pointer();
-    socket.emit("update", { message: `${currentZippedSize} bytes of data have been zipped` });
+    // kick off a timer to check if the zip process stops unexpectedly 
+    intervalId = setInterval(function () {
+      if (retryAttempt === 3) {
+        clearInterval(intervalId);
+        socket.emit("update", { message: `failed to zip after ${retryAttempt} attempts. Please try again` });
+        console.log(`failed to zip after ${retryAttempt} attempts. Please try again`);
+        return;
+      }
 
-    if (currentZippedSize > lastZippedSize)
-      lastZippedSize = currentZippedSize;
-    else {
-      socket.emit("update", { message: `error occurred, retrying to zip` });
-      console.log(`error occurred, retrying to zip`);
-      zip(folderToZip, containerFolder, outputName);
-    }
-  }.bind(folderToZip, containerFolder, outputName), 2000);
+      var currentZippedSize = archive.pointer();
+      socket.emit("update", { message: `${currentZippedSize} bytes of data have been zipped` });
+
+      if (currentZippedSize > lastZippedSize)
+        lastZippedSize = currentZippedSize;
+      else {
+        retryAttempt++;
+        socket.emit("update", { message: `error occurred, retrying to zip` });
+        console.log(`error occurred, retrying to zip`);
+        zip(folderToZip, containerFolder, outputName);
+      }
+    }.bind(folderToZip, containerFolder, outputName), 2000);
+  } catch (err) {
+    socket.emit("update", { message: `error occurred during zipping. Please try again` });
+    console.log(`error occurred during zipping. Please try again`);
+  }
 }
