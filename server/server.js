@@ -215,6 +215,7 @@ function zip(folderToZip, containerFolder, outputName) {
       retryAttempt = 0;
 
       socket.emit("update", { message: `zipping done. ${archive.pointer()} total bytes have been zipped` });
+      socket.emit("success", {message: `zipping done.`});
       console.log(`zipping is done. ${archive.pointer()} total bytes have been zipped`);
     });
 

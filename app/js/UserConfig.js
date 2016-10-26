@@ -6,14 +6,19 @@ module.exports = React.createClass({
   getInitialState: function () {
     return {
       urlString: "",
-      isPortalSelected: true
+      isPortalSelected: true,
+      isBundling: false
     }
   },
 
   componentDidMount: function () {
     var socket = io.connect('http://localhost:3000/');
-    socket.on('update', function (data) {
+    socket.on("update", function (data) {
       this.showServerMessage(data);
+    }.bind(this));
+
+    socket.on("success", function (data) {
+      this.setIsBundling(false);
     }.bind(this));
   },
 
@@ -45,6 +50,9 @@ module.exports = React.createClass({
         urlString: this.state.urlString,
         isPortalSelected: true
       },
+      beforeSend: function () {
+        this.setIsBundling(true);
+      }.bind(this),
       success: function (data) {
         this.showServerMessage(data);
       }.bind(this),
@@ -62,9 +70,15 @@ module.exports = React.createClass({
     return (
       <form onSubmit={this.submitForm}>
         <ServerSettings setServerUrl={this.setServerUrl} selectEnvironment={this.selectEnvironment} />
-        <Button type="submit" disabled={!this.state.urlString} >Submit</Button>
+        <Button type="submit" disabled={!this.state.urlString || this.state.isBundling} >Submit</Button>
       </form>
     );
+  },
+
+  setIsBundling: function (setting) {
+    this.setState({
+      isBundling: setting
+    });
   }
 });
 
