@@ -54,8 +54,6 @@ app.post("/submit", function (req, res) {
     return;
   }
 
-
-
   var urlString = req.body.urlString.trim();
   // Investigate why req.body.isPortalSelected comes in as a string 
   // var isPortal = req.body.isPortalSelected;
@@ -64,11 +62,11 @@ app.post("/submit", function (req, res) {
   // copy the source files to the output location, and update the JSAPI path
   var jsapiUrl = getJsapiUrl(urlString, isPortal);
   socket.emit("update", { message: `start bundling` });
-  console.log("start bundling");
+  console.log(`Start bundling with JSAPI URL: ${jsapiUrl}`);
   createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFolder).then(
     function (result) {
       if (!result) {
-        socket.emit("update", { message: `error occurred when creating a bundle, please retry.` })
+        socket.emit("serverNotBusy", { message: `error occurred when creating a bundle, please retry.` })
         console.log(`error occurred when creating the bundle, please retry.`);
       }
 
@@ -80,7 +78,7 @@ app.post("/submit", function (req, res) {
       socket.emit("bundlingCompleted", { message: `process completed` })
       console.log(`process completed`);
     }, function (err) {
-      socket.emit("update", { message: `error occurred when creating a bundle, please retry.` })
+      socket.emit("serverNotBusy", { message: `error occurred when creating a bundle, please retry.` })
       console.log(`error occurred when creating the bundle, please retry.`);
     });
 
@@ -236,7 +234,7 @@ function zip(folderToZip, containerFolder, outputName) {
 
     archive.on("error", function (err) {
       fs.emptyDirSync(containerFolder);
-      socket.emit("update", { message: `error occurred during zipping. Please try again` });
+      socket.emit("serverNotBusy", { message: `error occurred during zipping. Please try again` });
       console.log(`error occurred during zipping. Please try again`);
       return;
     });
@@ -256,7 +254,7 @@ function zip(folderToZip, containerFolder, outputName) {
     intervalId = setInterval(function () {
       if (retryAttempt === 3) {
         clearInterval(intervalId);
-        socket.emit("update", { message: `failed to zip after ${retryAttempt} attempts. Please try again` });
+        socket.emit("serverNotBusy", { message: `failed to zip after ${retryAttempt} attempts. Please try again` });
         console.log(`failed to zip after ${retryAttempt} attempts. Please try again`);
         return;
       }
@@ -274,7 +272,7 @@ function zip(folderToZip, containerFolder, outputName) {
       }
     }.bind(folderToZip, containerFolder, outputName), 2000);
   } catch (err) {
-    socket.emit("update", { message: `error occurred during zipping. Please try again` });
+    socket.emit("serverNotBusy", { message: `error occurred during zipping. Please try again` });
     console.log(`error occurred during zipping. Please try again`);
   }
 }
