@@ -17,7 +17,8 @@ module.exports = React.createClass({
       this.showServerMessage(data);
     }.bind(this));
 
-    socket.on("success", function (data) {
+    socket.on("serverNotBusy", function (data) {
+      this.showServerMessage(data);
       this.setIsBundling(false);
     }.bind(this));
   },
@@ -44,13 +45,13 @@ module.exports = React.createClass({
 
     $.ajax({
       url: "/submit",
-      dataType: 'json',
-      type: 'POST',
+      dataType: "json",
+      type: "POST",
       data: {
         urlString: this.state.urlString,
-        isPortalSelected: true
+        isPortalSelected: this.state.isPortalSelected
       },
-      beforeSend: function () {
+      beforeSend: function (xhrObj) {
         this.setIsBundling(true);
       }.bind(this),
       success: function (data) {

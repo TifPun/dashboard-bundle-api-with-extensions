@@ -28,7 +28,7 @@ var JSAPI_DIR = "arcgis_js_api";
 
 app.use("/", express.static(path.join(__dirname, "../app")));
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use(function (req, res, next) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -50,11 +50,16 @@ app.post("/submit", function (req, res) {
     res.status(200).send({ message: `bundling begins` });
   else {
     res.status(400).send({ message: `request contains invalid parameters. Make sure URL is correct` });
+    socket.emit("serverNotBusy", {message: `` });
     return;
   }
 
+
+
   var urlString = req.body.urlString.trim();
-  var isPortal = req.body.isPortalSelected;
+  // Investigate why req.body.isPortalSelected comes in as a string 
+  // var isPortal = req.body.isPortalSelected;
+  var isPortal = (req.body.isPortalSelected === "true");
 
   // copy the source files to the output location, and update the JSAPI path
   var jsapiUrl = getJsapiUrl(urlString, isPortal);
@@ -103,23 +108,25 @@ function getJsapiUrl(urlString, isPortal) {
     process.exit(1);
   }
   var host = parsedUrl.host;
+  var webAdapter = parsedUrl.pathname;
+  var path = isPortal ? "apps/dashboard" : "";
 
-  var webAdapter = isPortal ? "apps/dashboard" : "";
-  var jsapiUrl = concatUrlParts([host, webAdapter, EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
+  var jsapiUrl = concatUrlParts([host, webAdapter, path, EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
 
   return jsapiUrl;
 }
 
 function concatUrlParts(urlParts) {
-  var url = "";
 
-  urlParts.map(function (urlPart) {
+  return urlParts.reduce(function (url, urlPart) {
+    if (!urlPart.length)  
+      return url;
+
+    urlPart = urlPart.startsWith("/") ? urlPart.slice(1): urlPart;
     urlPart = urlPart.endsWith("/") ? urlPart : urlPart += "/";
 
-    url += urlPart;
-  });
-
-  return url;
+    return url + urlPart;
+  }, "");
 }
 
 function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFolder) {
@@ -214,8 +221,7 @@ function zip(folderToZip, containerFolder, outputName) {
       clearInterval(intervalId);
       retryAttempt = 0;
 
-      socket.emit("update", { message: `zipping done. ${archive.pointer()} total bytes have been zipped` });
-      socket.emit("success", {message: `zipping done.`});
+      socket.emit("serverNotBusy", {message: `zipping done. ${archive.pointer()} total bytes have been zipped` });
       console.log(`zipping is done. ${archive.pointer()} total bytes have been zipped`);
     });
 
