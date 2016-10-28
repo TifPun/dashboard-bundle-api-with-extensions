@@ -22,7 +22,8 @@ server.listen((process.env.PORT || 3000), function () {
   console.log("Server started: http://localhost:" + app.get("port") + "/");
 });
 
-var EXTENSIONS_DIR = "extensions";
+var PORTAL_EXTENSIONS_DIR = "extensions";
+var SERVER_EXTENTIONS_DIR = "opsDashboardExtensions"
 var BUNDLE_DIR = "jsapi-bundled";
 var JSAPI_DIR = "arcgis_js_api";
 
@@ -42,15 +43,11 @@ io.on('connection', function (_socket) {
 
 app.post("/submit", function (req, res) {
 
-  var sourceFolder = path.join(__dirname, "data");
-  var bundleContainerFolder = path.join(__dirname, "output");
-  var folderToBundle = path.join(bundleContainerFolder, BUNDLE_DIR);
-
   if (req.body && req.body.urlString)
     res.status(200).send({ message: `bundling begins` });
   else {
     res.status(400).send({ message: `request contains invalid parameters. Make sure URL is correct` });
-    socket.emit("serverNotBusy", {message: `` });
+    socket.emit("serverNotBusy", { message: `` });
     return;
   }
 
@@ -58,6 +55,10 @@ app.post("/submit", function (req, res) {
   // Investigate why req.body.isPortalSelected comes in as a string 
   // var isPortal = req.body.isPortalSelected;
   var isPortal = (req.body.isPortalSelected === "true");
+
+  var sourceFolder = path.join(__dirname, "data");
+  var bundleContainerFolder = path.join(__dirname, "output");
+  var folderToBundle = isPortal ? path.join(bundleContainerFolder, BUNDLE_DIR): path.join(bundleContainerFolder, SERVER_EXTENTIONS_DIR);
 
   // copy the source files to the output location, and update the JSAPI path
   var jsapiUrl = getJsapiUrl(urlString, isPortal);
@@ -73,7 +74,8 @@ app.post("/submit", function (req, res) {
       // zip the bundle folder and place it inside the container folder
       socket.emit("update", { message: `bundling is done, start zipping` });
       console.log(`bundling is done, start zipping`);
-      zip(folderToBundle, bundleContainerFolder, EXTENSIONS_DIR);
+      var outputFolderName = isPortal ? PORTAL_EXTENSIONS_DIR : SERVER_EXTENTIONS_DIR;
+      zip(folderToBundle, bundleContainerFolder, outputFolderName);
 
       socket.emit("bundlingCompleted", { message: `process completed` })
       console.log(`process completed`);
@@ -107,20 +109,20 @@ function getJsapiUrl(urlString, isPortal) {
   }
   var host = parsedUrl.host;
   var webAdapter = parsedUrl.pathname;
-  var path = isPortal ? "apps/dashboard" : "";
 
-  var jsapiUrl = concatUrlParts([host, webAdapter, path, EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
-
-  return jsapiUrl;
+  if (isPortal)
+    return concatUrlParts([host, webAdapter, "apps/dashboard", PORTAL_EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
+  else
+    return concatUrlParts([host, webAdapter, SERVER_EXTENTIONS_DIR, JSAPI_DIR]);
 }
 
 function concatUrlParts(urlParts) {
 
   return urlParts.reduce(function (url, urlPart) {
-    if (!urlPart.length)  
+    if (!urlPart.length)
       return url;
 
-    urlPart = urlPart.startsWith("/") ? urlPart.slice(1): urlPart;
+    urlPart = urlPart.startsWith("/") ? urlPart.slice(1) : urlPart;
     urlPart = urlPart.endsWith("/") ? urlPart : urlPart += "/";
 
     return url + urlPart;
@@ -133,7 +135,7 @@ function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFol
   var regex = new RegExp(/\[HOSTNAME_AND_PATH_TO_JSAPI\]/, "gi");
 
   return new Promise(function (resolve, reject) {
-    
+
     // empty the content in the output's container folder without deleting the container itself 
     // the container will be created if it does not exist
     fs.emptydir(bundleContainerFolder, function (err) {
@@ -150,7 +152,7 @@ function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFol
         }
 
         // replace text in the API and extensio files
-        apiFilePaths.map(function (path) {
+        apiFilePaths.forEach(function (path) {
           replaceText(path, regex, jsapiUrl);
         });
 
@@ -158,7 +160,7 @@ function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFol
         if (!extensionFiles)
           console.log(`no extension file was found`);
         else {
-          extensionFiles.map(function (path) {
+          extensionFiles.forEach(function (path) {
             replaceText(path, regex, jsapiUrl);
           });
         }
@@ -219,8 +221,9 @@ function zip(folderToZip, containerFolder, outputName) {
       clearInterval(intervalId);
       retryAttempt = 0;
 
-      socket.emit("serverNotBusy", {message: `zipping done. ${archive.pointer()} total bytes have been zipped` });
-      console.log(`zipping is done. ${archive.pointer()} total bytes have been zipped`);
+      var dataInMB = Math.round(archive.pointer() / 1000000, -1);
+      socket.emit("serverNotBusy", { message: `zipping done. ${dataInMB} MB of data have been zipped` });
+      console.log(`zipping is done. ${dataInMB} MB of data have been zipped`);
     });
 
     writeStream.on("error", function () {
