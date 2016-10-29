@@ -18,7 +18,7 @@ module.exports = React.createClass({
 
   returnLabelText: function () {
     return this.props.isPortalSelected === true ?
-      "Enter ArcGIS Portal URL" : "Enter web server URL";
+      "Enter ArcGIS Portal URL" : "Enter the web URL where the extensions will be hosted";
   },
 
   getPlaceHolder: function () {
@@ -71,7 +71,7 @@ module.exports = React.createClass({
   render: function () {
     return (
       <FormGroup controlId="serverrl">
-        <ControlLabel>{this.returnLabelText()}</ControlLabel>
+        <FormControl.Static>{this.returnLabelText()}</FormControl.Static>
         <FormControl type="text" placeholder={this.getPlaceHolder()} onChange={this.onUrlChange} />
       </FormGroup>
     );

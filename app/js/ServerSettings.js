@@ -22,7 +22,7 @@ module.exports = React.createClass({
   render: function () {
     return (
       <FormGroup controlId="serverSettings" >
-        <ControlLabel > Choose where the extensions will be hosted</ControlLabel>
+        <FormControl.Static> Choose where the extensions will be hosted</FormControl.Static>
         <FormGroup >
           <Radio inline name="serverOption" id="portal" checked={this.state.isPortalSelected} onChange={this.onServerOptionChanged} >
             ArcGIS Portal

@@ -26,6 +26,7 @@ var PORTAL_EXTENSIONS_DIR = "extensions";
 var SERVER_EXTENTIONS_DIR = "opsDashboardExtensions"
 var BUNDLE_DIR = "jsapi-bundled";
 var JSAPI_DIR = "arcgis_js_api";
+var isPortal = false;
 
 app.use("/", express.static(path.join(__dirname, "../app")));
 app.use(bodyParser.json());
@@ -54,7 +55,7 @@ app.post("/submit", function (req, res) {
   var urlString = req.body.urlString.trim();
   // Investigate why req.body.isPortalSelected comes in as a string 
   // var isPortal = req.body.isPortalSelected;
-  var isPortal = (req.body.isPortalSelected === "true");
+  isPortal = (req.body.isPortalSelected === "true");
 
   var sourceFolder = path.join(__dirname, "data");
   var bundleContainerFolder = path.join(__dirname, "output");
@@ -88,8 +89,7 @@ app.post("/submit", function (req, res) {
 
 app.get("/downloadOutput", function (req, res) {
 
-  // todo: update output folder name
-  var outputPath = path.join(__dirname, "output", "extensions.zip");
+  var outputPath = isPortal? path.join(__dirname, "output", PORTAL_EXTENSIONS_DIR) : path.join(__dirname, "output", SERVER_EXTENTIONS_DIR);
   var readStream = fs.createReadStream(outputPath);
   readStream.on("open", function () {
     readStream.pipe(res);
