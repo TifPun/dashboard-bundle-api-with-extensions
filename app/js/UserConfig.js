@@ -14,11 +14,11 @@ module.exports = React.createClass({
   componentDidMount: function () {
     var socket = io.connect('http://localhost:3000/');
     socket.on("update", function (data) {
-      this.showServerMessage(data.message);
+      this.showServerMessage(data);
     }.bind(this));
 
     socket.on("serverNotBusy", function (data) {
-      this.showServerMessage(data.message);
+      this.showServerMessage(data);
       this.setIsBundling(false);
 
       if(data.success)

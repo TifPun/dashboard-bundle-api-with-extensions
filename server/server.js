@@ -63,6 +63,7 @@ app.post("/submit", function (req, res) {
   var protocol = url.parse(urlString, true, true).protocol;
   var extensionsUrl = protocol + "//" + path.join(jsapiUrl, "../");
 
+  socket.emit("update", { message: `started creating extension bundle` });
   res.status(200).send({ message: extensionsUrl });
 
   // socket.emit("update", { message: `start bundling` });
@@ -78,7 +79,7 @@ app.post("/submit", function (req, res) {
       }
 
       // zip the bundle folder and place it inside the container folder
-      socket.emit("update", { message: `bundling is done, start zipping` });
+      socket.emit("update", { message: `bundling is done. started zipping` });
       console.log(`bundling is done, start zipping`);
       var outputFolderName = isPortal ? PORTAL_EXTENSIONS_DIR : SERVER_EXTENTIONS_DIR;
       zip(folderToBundle, outputFolder, outputFolderName);
@@ -95,14 +96,18 @@ app.post("/submit", function (req, res) {
 app.get("/downloadOutput", function (req, res) {
 
   // todo review if the logic here is enough
+  // http://stackoverflow.com/questions/21578208/node-js-send-file-to-client
+
   var outputPath = isPortal ? path.join(__dirname, "output", PORTAL_EXTENSIONS_DIR) : path.join(__dirname, "output", SERVER_EXTENTIONS_DIR);
+  outputPath += ".zip";
+
   var readStream = fs.createReadStream(outputPath);
   readStream.on("open", function () {
     readStream.pipe(res);
   });
 
   readStream.on("error", function (err) {
-    res.end(err);
+    res.end(err.message);
   });
 });
 
