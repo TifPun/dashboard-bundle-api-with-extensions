@@ -43,12 +43,9 @@ io.on('connection', function (_socket) {
 });
 
 app.post("/submit", function (req, res) {
-
-  if (req.body && req.body.urlString)
-    res.status(200).send({ message: `bundling begins` });
-  else {
+  if (!req.body || !req.body.urlString) {
     res.status(400).send({ message: `request contains invalid parameters. Make sure URL is correct` });
-    socket.emit("serverNotBusy", { message: `` });
+    socket.emit("serverNotBusy", { message: ``, success: false });
     return;
   }
 
@@ -58,17 +55,25 @@ app.post("/submit", function (req, res) {
   isPortal = (req.body.isPortalSelected === "true");
 
   var sourceFolder = path.join(__dirname, "data");
-  var bundleContainerFolder = path.join(__dirname, "output");
-  var folderToBundle = isPortal ? path.join(bundleContainerFolder, BUNDLE_DIR): path.join(bundleContainerFolder, SERVER_EXTENTIONS_DIR);
+  var outputFolder = path.join(__dirname, "output");
+  var folderToBundle = isPortal ? path.join(outputFolder, BUNDLE_DIR) : path.join(outputFolder, SERVER_EXTENTIONS_DIR);
+  var jsapiUrl = getJsapiUrl(urlString, isPortal);
+
+  // todo is there a better way to create and send back the URL 
+  var protocol = url.parse(urlString, true, true).protocol;
+  var extensionsUrl = protocol + "//" + path.join(jsapiUrl, "../");
+
+  res.status(200).send({ message: extensionsUrl });
+
+  // socket.emit("update", { message: `start bundling` });
+  // socket.emit("serverNotBusy", { message: `start bundling`, success: true }); return;
+  console.log(`Start bundling with extensions URL: ${extensionsUrl}`);
 
   // copy the source files to the output location, and update the JSAPI path
-  var jsapiUrl = getJsapiUrl(urlString, isPortal);
-  socket.emit("update", { message: `start bundling` });
-  console.log(`Start bundling with JSAPI URL: ${jsapiUrl}`);
-  createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFolder).then(
+  createBundle(jsapiUrl, sourceFolder, folderToBundle, outputFolder).then(
     function (result) {
       if (!result) {
-        socket.emit("serverNotBusy", { message: `error occurred when creating a bundle, please retry.` })
+        socket.emit("serverNotBusy", { message: `error occurred when creating a bundle, please retry.`, success: false })
         console.log(`error occurred when creating the bundle, please retry.`);
       }
 
@@ -76,12 +81,12 @@ app.post("/submit", function (req, res) {
       socket.emit("update", { message: `bundling is done, start zipping` });
       console.log(`bundling is done, start zipping`);
       var outputFolderName = isPortal ? PORTAL_EXTENSIONS_DIR : SERVER_EXTENTIONS_DIR;
-      zip(folderToBundle, bundleContainerFolder, outputFolderName);
+      zip(folderToBundle, outputFolder, outputFolderName);
 
       socket.emit("bundlingCompleted", { message: `process completed` })
       console.log(`process completed`);
     }, function (err) {
-      socket.emit("serverNotBusy", { message: `error occurred when creating a bundle, please retry.` })
+      socket.emit("serverNotBusy", { message: `error occurred when creating a bundle, please retry.`, success: false })
       console.log(`error occurred when creating the bundle, please retry.`);
     });
 
@@ -89,7 +94,8 @@ app.post("/submit", function (req, res) {
 
 app.get("/downloadOutput", function (req, res) {
 
-  var outputPath = isPortal? path.join(__dirname, "output", PORTAL_EXTENSIONS_DIR) : path.join(__dirname, "output", SERVER_EXTENTIONS_DIR);
+  // todo review if the logic here is enough
+  var outputPath = isPortal ? path.join(__dirname, "output", PORTAL_EXTENSIONS_DIR) : path.join(__dirname, "output", SERVER_EXTENTIONS_DIR);
   var readStream = fs.createReadStream(outputPath);
   readStream.on("open", function () {
     readStream.pipe(res);
@@ -103,17 +109,18 @@ app.get("/downloadOutput", function (req, res) {
 function getJsapiUrl(urlString, isPortal) {
   var parsedUrl = url.parse(urlString, true, true);
 
-  if (!parsedUrl || !parsedUrl.host) {
+  if (!parsedUrl || !parsedUrl.protocol || !parsedUrl.host) {
+    // todo test this
     console.log(`url is invalid`);
     process.exit(1);
   }
   var host = parsedUrl.host;
-  var webAdapter = parsedUrl.pathname;
+  var path = parsedUrl.pathname;
 
   if (isPortal)
-    return concatUrlParts([host, webAdapter, "apps/dashboard", PORTAL_EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
+    return concatUrlParts([host, path, "apps/dashboard", PORTAL_EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
   else
-    return concatUrlParts([host, webAdapter, SERVER_EXTENTIONS_DIR, JSAPI_DIR]);
+    return concatUrlParts([host, path, SERVER_EXTENTIONS_DIR, JSAPI_DIR]);
 }
 
 function concatUrlParts(urlParts) {
@@ -129,7 +136,7 @@ function concatUrlParts(urlParts) {
   }, "");
 }
 
-function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFolder) {
+function createBundle(jsapiUrl, sourceFolder, folderToBundle, outputFolder) {
   var apiFolder = path.join(folderToBundle, JSAPI_DIR);
   var apiFilePaths = [path.join(apiFolder, "init.js"), path.join(apiFolder, "dojo/dojo.js")];
   var regex = new RegExp(/\[HOSTNAME_AND_PATH_TO_JSAPI\]/, "gi");
@@ -138,7 +145,7 @@ function createBundle(jsapiUrl, sourceFolder, folderToBundle, bundleContainerFol
 
     // empty the content in the output's container folder without deleting the container itself 
     // the container will be created if it does not exist
-    fs.emptydir(bundleContainerFolder, function (err) {
+    fs.emptydir(outputFolder, function (err) {
       if (err) {
         console.log(`error occurred when deleting previous output. Details: ${err}`);
         reject(false);
@@ -222,7 +229,7 @@ function zip(folderToZip, containerFolder, outputName) {
       retryAttempt = 0;
 
       var dataInMB = Math.round(archive.pointer() / 1000000, -1);
-      socket.emit("serverNotBusy", { message: `zipping done. ${dataInMB} MB of data have been zipped` });
+      socket.emit("serverNotBusy", { message: `zipping done. ${dataInMB} MB of data have been zipped`, success: true });
       console.log(`zipping is done. ${dataInMB} MB of data have been zipped`);
     });
 
@@ -237,7 +244,7 @@ function zip(folderToZip, containerFolder, outputName) {
 
     archive.on("error", function (err) {
       fs.emptyDirSync(containerFolder);
-      socket.emit("serverNotBusy", { message: `error occurred during zipping. Please try again` });
+      socket.emit("serverNotBusy", { message: `error occurred during zipping. Please try again`, success: false });
       console.log(`error occurred during zipping. Please try again`);
       return;
     });
@@ -257,7 +264,7 @@ function zip(folderToZip, containerFolder, outputName) {
     intervalId = setInterval(function () {
       if (retryAttempt === 3) {
         clearInterval(intervalId);
-        socket.emit("serverNotBusy", { message: `failed to zip after ${retryAttempt} attempts. Please try again` });
+        socket.emit("serverNotBusy", { message: `failed to zip after ${retryAttempt} attempts. Please try again`, success: false });
         console.log(`failed to zip after ${retryAttempt} attempts. Please try again`);
         return;
       }
@@ -275,7 +282,7 @@ function zip(folderToZip, containerFolder, outputName) {
       }
     }.bind(folderToZip, containerFolder, outputName), 2000);
   } catch (err) {
-    socket.emit("serverNotBusy", { message: `error occurred during zipping. Please try again` });
+    socket.emit("serverNotBusy", { message: `error occurred during zipping. Please try again`, success: false });
     console.log(`error occurred during zipping. Please try again`);
   }
 }

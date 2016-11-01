@@ -14,12 +14,15 @@ module.exports = React.createClass({
   componentDidMount: function () {
     var socket = io.connect('http://localhost:3000/');
     socket.on("update", function (data) {
-      this.showServerMessage(data);
+      this.showServerMessage(data.message);
     }.bind(this));
 
     socket.on("serverNotBusy", function (data) {
-      this.showServerMessage(data);
+      this.showServerMessage(data.message);
       this.setIsBundling(false);
+
+      if(data.success)
+        this.props.showDownloadUI();
     }.bind(this));
   },
 
@@ -43,6 +46,8 @@ module.exports = React.createClass({
   submitForm: function (event) {
     event.preventDefault();
 
+    this.props.hideDownloadUI();
+
     $.ajax({
       url: "/submit",
       dataType: "json",
@@ -55,7 +60,7 @@ module.exports = React.createClass({
         this.setIsBundling(true);
       }.bind(this),
       success: function (data) {
-        this.showServerMessage(data);
+        this.props.showUserConfig(this.state.isPortalSelected, data.message);
       }.bind(this),
       error: function (xhr, status, err) {
         // todo: need to revise if this is a good way to handle error 

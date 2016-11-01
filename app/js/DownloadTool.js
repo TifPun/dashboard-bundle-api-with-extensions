@@ -5,33 +5,39 @@ var FormControl = require("react-bootstrap/lib/FormControl");
 var Button = require("react-bootstrap/lib/Button");
 
 module.exports = React.createClass({
-  componentWillMount: function () {
-    if (this.props.isPortalSelected) {
+  downloadError: function(){
+    // todo how to test this?
+    console.log("download error");
+  },
+
+  render: function () {
+     if (this.props.isPortalSelected) {
       this.configs = {
         extensionsDir: "jsapi-bundled",
         host: "Portal for ArcGIS installation directory",
-        parentFolder: "[InstallDir]\arcgis\portal\apps\dashboard\extensions"
+        parentFolder: "under [InstallDir]\\arcgis\\portal\\apps\\dashboard\\extensions"
       }
     }
     else {
       this.configs = {
         extensionsDir: "opsDashboardExtensions",
         host: "web server directory",
-        parentFolder: this.props.extensionsParentFolder
+        parentFolder: ""
       }
     }
-  },
 
-  render: function () {
     // <Panel bsStyle="primary" header={<h3>Deploy extensions</h3>}>
     return (
       <Well>
         <ControlLabel > Deploy extensions</ControlLabel>
-        <FormControl.Static>Extension has been created successfully with the ArcGIS JSAPI bundled. Follow the steps below to finish the deployment</FormControl.Static>
+        <FormControl.Static>Extension has been created successfully with the ArcGIS JSAPI bundled. Follow the steps below to finish the deployment:</FormControl.Static>
         <ol>
-          <li><a href="/downloadOutput">Download the extensions from here</a></li>
-          <li>Unzip the folder</li>
-          <li>Copy the <b>{this.configs.extensionsDir}</b> folder to your {this.configs.host} under <b>{this.configs.extensionsParentFolder}</b></li>
+          <li>Download the extensions from <a href="/downloadOutput" onError={this.downloadError}>here.</a></li>
+          <li>Unzip the folder.</li>
+          <li>Copy the <b>{this.configs.extensionsDir}</b> folder to your {this.configs.host} {this.configs.parentFolder}.</li>
+           { !this.props.isPortalSelected ? <li>Make sure your web server is anonymously accessible</li> : null }
+          <li>You should now be able to access each extension via <b>{this.props.extensionsUrl}&lt;extensionFolder&gt;/&lt;extensionName&gt;.json</b>.
+           Follow <a href="#">this doc</a> to register the extensions to your ArcGIS organization.</li>
         </ol>
       </Well>
     )
