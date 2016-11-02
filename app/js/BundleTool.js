@@ -50,7 +50,8 @@ module.exports = React.createClass({
           <ServerMessage message={this.state.serverMessage} />
         </Well>
 
-        {this.state.canDownload ? <DownloadTool isPortalSelected={this.state.isPortalSelected} extensionsUrl={this.state.extensionsUrl} /> : null}
+        // {this.state.canDownload ? <DownloadTool isPortalSelected={this.state.isPortalSelected} extensionsUrl={this.state.extensionsUrl} /> : null}
+        <DownloadTool isPortalSelected={this.state.isPortalSelected} extensionsUrl={this.state.extensionsUrl} />
       </div>
     );
   }
