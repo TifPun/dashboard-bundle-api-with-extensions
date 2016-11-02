@@ -28,8 +28,7 @@ module.exports = React.createClass({
     }
 
     var urlStyle = {
-      overflowWrap: "break-word",
-      wordWrap: "break-word"
+      overflowWrap: "break-word"
     }
 
     // <Panel bsStyle="primary" header={<h3>Deploy extensions</h3>}>
