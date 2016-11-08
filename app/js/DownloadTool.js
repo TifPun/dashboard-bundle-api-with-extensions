@@ -42,7 +42,7 @@ module.exports = React.createClass({
           <li>Copy the <b>{this.configs.extensionsDir}</b> folder to your {this.configs.host}{this.configs.parentFolder}.
             {!this.props.isPortalSelected ? " Make sure your web server is anonymously accessible." : ""}</li>
           <li>You should now be able to access each extension via <b style={urlStyle}>{this.props.extensionsUrl}&lt;extensionFolder&gt;/&lt;extensionName&gt;.json</b>.
-           Follow <a href="https://developers.arcgis.com/javascript/3/jshelp/operations-dashboard-extensibility-deploy-register-ext.html">this doc</a> to register the extensions to your ArcGIS organization.</li>
+           Follow <a href="https://developers.arcgis.com/javascript/3/jshelp/operations-dashboard-extensibility-deploy-register-ext.html" target="_blank">this doc</a> to register the extensions to your ArcGIS organization.</li>
         </ol>
       </Well>
     )
