@@ -27,9 +27,8 @@ module.exports = React.createClass({
       }
     }
 
-    var style = {
-      "overflowWrap": "break-all",
-      "wordWrap": "break-all"
+    var urlStyle = {
+      overflowWrap: "break-word"
     }
 
     // <Panel bsStyle="primary" header={<h3>Deploy extensions</h3>}>
@@ -42,8 +41,8 @@ module.exports = React.createClass({
           <li>Unzip the folder.</li>
           <li>Copy the <b>{this.configs.extensionsDir}</b> folder to your {this.configs.host}{this.configs.parentFolder}.
             {!this.props.isPortalSelected ? " Make sure your web server is anonymously accessible." : ""}</li>
-          <li>You should now be able to access each extension via <b style={style}>{this.props.extensionsUrl}&lt;extensionFolder&gt;/&lt;extensionName&gt;.json</b>.
-           Follow <a href="#">this doc</a> to register the extensions to your ArcGIS organization.</li>
+          <li>You should now be able to access each extension via <b style={urlStyle}>{this.props.extensionsUrl}&lt;extensionFolder&gt;/&lt;extensionName&gt;.json</b>.
+           Follow <a href="https://developers.arcgis.com/javascript/3/jshelp/operations-dashboard-extensibility-deploy-register-ext.html" target="_blank">this doc</a> to register the extensions to your ArcGIS organization.</li>
         </ol>
       </Well>
     )
