@@ -27,6 +27,10 @@ var SERVER_EXTENTIONS_DIR = "opsDashboardExtensions"
 var BUNDLE_DIR = "jsapi-bundled";
 var JSAPI_DIR = "arcgis_js_api";
 var isPortal = false;
+var clientDisconnects = false;
+var retryAttempt = 0;
+var sourceFolder = path.join(__dirname, "data");
+var outputFolder = path.join(__dirname, "output");
 
 app.use("/", express.static(path.join(__dirname, "../app")));
 app.use(bodyParser.json());
@@ -38,8 +42,13 @@ app.use(function (req, res, next) {
   next();
 });
 
-io.on('connection', function (_socket) {
+io.on("connection", function (_socket) {
   socket = _socket;
+
+  // abort any bundling or zipping process if client disconnects
+  socket.on("disconnect", function () {
+    clientDisconnects = true;
+  });
 });
 
 app.post("/submit", function (req, res) {
@@ -54,8 +63,6 @@ app.post("/submit", function (req, res) {
   // var isPortal = req.body.isPortalSelected;
   isPortal = (req.body.isPortalSelected === "true");
 
-  var sourceFolder = path.join(__dirname, "data");
-  var outputFolder = path.join(__dirname, "output");
   var folderToBundle = isPortal ? path.join(outputFolder, BUNDLE_DIR) : path.join(outputFolder, SERVER_EXTENTIONS_DIR);
   var jsapiUrl = getJsapiUrl(urlString, isPortal);
 
@@ -65,9 +72,6 @@ app.post("/submit", function (req, res) {
 
   socket.emit("update", { message: `started creating extension bundle` });
   res.status(200).send({ message: extensionsUrl });
-
-  // socket.emit("update", { message: `start bundling` });
-  // socket.emit("serverNotBusy", { message: `start bundling`, success: true }); return;
   console.log(`Start bundling with extensions URL: ${extensionsUrl}`);
 
   // copy the source files to the output location, and update the JSAPI path
@@ -76,70 +80,32 @@ app.post("/submit", function (req, res) {
       if (!result) {
         socket.emit("serverNotBusy", { message: `error occurred when creating a bundle, please retry.`, success: false })
         console.log(`error occurred when creating the bundle, please retry.`);
+        return;
       }
 
-      // zip the bundle folder and place it inside the container folder
-      socket.emit("update", { message: `bundling is done. started zipping` });
-      console.log(`bundling is done, start zipping`);
-      var outputFolderName = isPortal ? PORTAL_EXTENSIONS_DIR : SERVER_EXTENTIONS_DIR;
-      zip(folderToBundle, outputFolder, outputFolderName);
+      // delete the bundle if client has disconnected 
+      if (clientDisconnects) {
+        fs.emptydir(outputFolder, function (err) {
+          console.log(`zipping was aborted`);
+          clientDisconnects = false;
+        });
+      }
+      else {
+        // zip the bundle folder and place it inside the container folder
+        socket.emit("update", { message: `bundling is done. started zipping` });
+        console.log(`bundling is done, start zipping`);
+        var outputFolderName = isPortal ? PORTAL_EXTENSIONS_DIR : SERVER_EXTENTIONS_DIR;
+        zip(folderToBundle, outputFolder, outputFolderName);
 
-      socket.emit("bundlingCompleted", { message: `process completed` })
-      console.log(`process completed`);
+        socket.emit("update", { message: `bundling is completed` })
+        console.log(`bundling is completed`);
+      }
     }, function (err) {
       socket.emit("serverNotBusy", { message: `error occurred when creating a bundle, please retry.`, success: false })
       console.log(`error occurred when creating the bundle, please retry.`);
     });
 
 });
-
-app.get("/downloadOutput", function (req, res) {
-
-  // todo review if the logic here is enough
-  // http://stackoverflow.com/questions/21578208/node-js-send-file-to-client
-
-  var outputPath = isPortal ? path.join(__dirname, "output", PORTAL_EXTENSIONS_DIR) : path.join(__dirname, "output", SERVER_EXTENTIONS_DIR);
-  outputPath += ".zip";
-
-  var readStream = fs.createReadStream(outputPath);
-  readStream.on("open", function () {
-    readStream.pipe(res);
-  });
-
-  readStream.on("error", function (err) {
-    res.end(err.message);
-  });
-});
-
-function getJsapiUrl(urlString, isPortal) {
-  var parsedUrl = url.parse(urlString, true, true);
-
-  if (!parsedUrl || !parsedUrl.protocol || !parsedUrl.host) {
-    // todo test this
-    console.log(`url is invalid`);
-    process.exit(1);
-  }
-  var host = parsedUrl.host;
-  var path = parsedUrl.pathname;
-
-  if (isPortal)
-    return concatUrlParts([host, path, "apps/dashboard", PORTAL_EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
-  else
-    return concatUrlParts([host, path, SERVER_EXTENTIONS_DIR, JSAPI_DIR]);
-}
-
-function concatUrlParts(urlParts) {
-
-  return urlParts.reduce(function (url, urlPart) {
-    if (!urlPart.length)
-      return url;
-
-    urlPart = urlPart.startsWith("/") ? urlPart.slice(1) : urlPart;
-    urlPart = urlPart.endsWith("/") ? urlPart : urlPart += "/";
-
-    return url + urlPart;
-  }, "");
-}
 
 function createBundle(jsapiUrl, sourceFolder, folderToBundle, outputFolder) {
   var apiFolder = path.join(folderToBundle, JSAPI_DIR);
@@ -183,6 +149,121 @@ function createBundle(jsapiUrl, sourceFolder, folderToBundle, outputFolder) {
   });
 }
 
+function zip(folderToZip, containerFolder, outputName) {
+
+  var intervalId;
+  var lastZippedSize = -1;
+  var zipFilePath = path.join(containerFolder, outputName + ".zip");
+
+  // if zipping hasn't started when the client disconnects, delete the bundle
+  if (clientDisconnects) {
+    clearInterval(intervalId);
+
+    fs.remove(outputFolder, function (err) {
+      console.log(`zipping was aborted`);
+      clientDisconnects = false;
+    });
+  }
+
+  try {
+    fs.accessSync(folderToZip);
+
+    // create the write stream
+    var writeStream = fs.createWriteStream(zipFilePath);
+
+    writeStream.on("close", function () {
+      clearInterval(intervalId);
+      retryAttempt = 0;
+
+      var dataInMB = Math.round(archive.pointer() / 1000000, -1);
+      socket.emit("serverNotBusy", { message: `zipping done. ${dataInMB} MB of data have been zipped`, success: true });
+      console.log(`zipping is done. ${dataInMB} MB of data have been zipped`);
+    });
+
+    writeStream.on("error", function () {
+      socket.emit("update", { message: `error occurred during zipping. Please try again` });
+      console.error(`error occurred at writeStream. Please try again`);
+      return;
+    })
+
+    // start zipping 
+    var archive = archiver("zip", { level: 9 });
+    // isBusy = true;
+
+    archive.on("error", function (err) {
+      fs.emptyDirSync(containerFolder);
+      socket.emit("serverNotBusy", { message: `error occurred during zipping. Please try again`, success: false });
+      console.log(`error occurred during zipping. Please try again`);
+      return;
+    });
+
+    archive.on("entry", function (obj) {
+
+      // if zipping has started when the client disconnects, abort the zipping
+      if (clientDisconnects) {
+        archive.unpipe(writeStream);
+        writeStream.end();
+        clientDisconnects = false;
+      }
+
+      lastZippedSize = archive.pointer();
+    })
+
+    archive.pipe(writeStream);
+
+    var outputStructure = outputName + "/" + path.basename(folderToZip);
+    archive.directory(folderToZip, outputStructure);
+
+    archive.finalize();
+
+    // recovery: kick off a timer to check if the zip process stops unexpectedly 
+    intervalId = setInterval(function () {
+
+      if (retryAttempt === 3) {
+        clearInterval(intervalId);
+        socket.emit("serverNotBusy", { message: `failed to zip after ${retryAttempt} attempts. Please try again`, success: false });
+        console.log(`failed to zip after ${retryAttempt} attempts. Please try again`);
+        return;
+      }
+
+      var currentZippedSize = archive.pointer();
+      socket.emit("update", { message: `${currentZippedSize} bytes of data have been zipped` });
+
+      if (currentZippedSize > lastZippedSize)
+        lastZippedSize = currentZippedSize;
+      else {
+        retryAttempt++;
+        socket.emit("update", { message: `error occurred, retrying to zip` });
+        console.log(`error occurred, retrying to zip. Attempt ${retryAttempt}`);
+        zip(folderToZip, containerFolder, outputName);
+      }
+    }.bind(folderToZip, containerFolder, outputName), 2000);
+  } catch (err) {
+    socket.emit("serverNotBusy", { message: `error occurred during zipping. Please try again`, success: false });
+    console.log(`error occurred during zipping. Please try again`);
+  }
+}
+
+app.get("/downloadOutput", function (req, res) {
+
+  // todo review if the logic here is enough
+  // http://stackoverflow.com/questions/21578208/node-js-send-file-to-client
+
+  var outputPath = isPortal ? path.join(__dirname, "output", PORTAL_EXTENSIONS_DIR) : path.join(__dirname, "output", SERVER_EXTENTIONS_DIR);
+  outputPath += ".zip";
+
+  var readStream = fs.createReadStream(outputPath);
+  readStream.on("open", function () {
+    readStream.pipe(res);
+  });
+
+  readStream.on("error", function (err) {
+    res.end(err.message);
+  });
+});
+
+// ***************** Helper methods ***************** 
+
 function getFilePathsRecursive(folder, folderToExclude, filePaths) {
   filePaths = filePaths || [];
 
@@ -217,77 +298,32 @@ function replaceText(path, regex, newText) {
   });
 }
 
-function zip(folderToZip, containerFolder, outputName) {
-  var intervalId;
-  var retryAttempt = 0;
-  var lastZippedSize = -1;
-  var zipFilePath = path.join(containerFolder, outputName + ".zip");
+function getJsapiUrl(urlString, isPortal) {
+  var parsedUrl = url.parse(urlString, true, true);
 
-  try {
-    fs.accessSync(folderToZip);
-
-    // create the write stream
-    var writeStream = fs.createWriteStream(zipFilePath);
-
-    writeStream.on("close", function () {
-      clearInterval(intervalId);
-      retryAttempt = 0;
-
-      var dataInMB = Math.round(archive.pointer() / 1000000, -1);
-      socket.emit("serverNotBusy", { message: `zipping done. ${dataInMB} MB of data have been zipped`, success: true });
-      console.log(`zipping is done. ${dataInMB} MB of data have been zipped`);
-    });
-
-    writeStream.on("error", function () {
-      socket.emit("update", { message: `error occurred during zipping. Please try again` });
-      console.error(`error occurred at writeStream. Please try again`);
-      return;
-    })
-
-    // start zipping 
-    var archive = archiver("zip", { level: 9 });
-
-    archive.on("error", function (err) {
-      fs.emptyDirSync(containerFolder);
-      socket.emit("serverNotBusy", { message: `error occurred during zipping. Please try again`, success: false });
-      console.log(`error occurred during zipping. Please try again`);
-      return;
-    });
-
-    archive.on("entry", function (obj) {
-      lastZippedSize = archive.pointer();
-    })
-
-    archive.pipe(writeStream);
-
-    var outputStructure = outputName + "/" + path.basename(folderToZip);
-    archive.directory(folderToZip, outputStructure);
-
-    archive.finalize();
-
-    // kick off a timer to check if the zip process stops unexpectedly 
-    intervalId = setInterval(function () {
-      if (retryAttempt === 3) {
-        clearInterval(intervalId);
-        socket.emit("serverNotBusy", { message: `failed to zip after ${retryAttempt} attempts. Please try again`, success: false });
-        console.log(`failed to zip after ${retryAttempt} attempts. Please try again`);
-        return;
-      }
-
-      var currentZippedSize = archive.pointer();
-      socket.emit("update", { message: `${currentZippedSize} bytes of data have been zipped` });
-
-      if (currentZippedSize > lastZippedSize)
-        lastZippedSize = currentZippedSize;
-      else {
-        retryAttempt++;
-        socket.emit("update", { message: `error occurred, retrying to zip` });
-        console.log(`error occurred, retrying to zip`);
-        zip(folderToZip, containerFolder, outputName);
-      }
-    }.bind(folderToZip, containerFolder, outputName), 2000);
-  } catch (err) {
-    socket.emit("serverNotBusy", { message: `error occurred during zipping. Please try again`, success: false });
-    console.log(`error occurred during zipping. Please try again`);
+  if (!parsedUrl || !parsedUrl.protocol || !parsedUrl.host) {
+    // todo test this
+    console.log(`url is invalid`);
+    process.exit(1);
   }
+  var host = parsedUrl.host;
+  var path = parsedUrl.pathname;
+
+  if (isPortal)
+    return concatUrlParts([host, path, "apps/dashboard", PORTAL_EXTENSIONS_DIR, BUNDLE_DIR, JSAPI_DIR]);
+  else
+    return concatUrlParts([host, path, SERVER_EXTENTIONS_DIR, JSAPI_DIR]);
+}
+
+function concatUrlParts(urlParts) {
+
+  return urlParts.reduce(function (url, urlPart) {
+    if (!urlPart.length)
+      return url;
+
+    urlPart = urlPart.startsWith("/") ? urlPart.slice(1) : urlPart;
+    urlPart = urlPart.endsWith("/") ? urlPart : urlPart += "/";
+
+    return url + urlPart;
+  }, "");
 }
