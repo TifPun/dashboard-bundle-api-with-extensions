@@ -29,6 +29,8 @@ var JSAPI_DIR = "arcgis_js_api";
 var isPortal = false;
 var clientDisconnects = false;
 var retryAttempt = 0;
+var sourceFolder = path.join(__dirname, "data");
+var outputFolder = path.join(__dirname, "output");
 
 app.use("/", express.static(path.join(__dirname, "../app")));
 app.use(bodyParser.json());
@@ -61,8 +63,6 @@ app.post("/submit", function (req, res) {
   // var isPortal = req.body.isPortalSelected;
   isPortal = (req.body.isPortalSelected === "true");
 
-  var sourceFolder = path.join(__dirname, "data");
-  var outputFolder = path.join(__dirname, "output");
   var folderToBundle = isPortal ? path.join(outputFolder, BUNDLE_DIR) : path.join(outputFolder, SERVER_EXTENTIONS_DIR);
   var jsapiUrl = getJsapiUrl(urlString, isPortal);
 
@@ -85,7 +85,7 @@ app.post("/submit", function (req, res) {
 
       // delete the bundle if client has disconnected 
       if (clientDisconnects) {
-        fs.remove(folderToZip, function (err) {
+        fs.emptydir(outputFolder, function (err) {
           console.log(`zipping was aborted`);
           clientDisconnects = false;
         });
@@ -159,7 +159,7 @@ function zip(folderToZip, containerFolder, outputName) {
   if (clientDisconnects) {
     clearInterval(intervalId);
 
-    fs.remove(folderToZip, function (err) {
+    fs.remove(outputFolder, function (err) {
       console.log(`zipping was aborted`);
       clientDisconnects = false;
     });
