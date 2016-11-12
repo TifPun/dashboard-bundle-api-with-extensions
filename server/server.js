@@ -28,7 +28,6 @@ var BUNDLE_DIR = "jsapi-bundled";
 var JSAPI_DIR = "arcgis_js_api";
 var isPortal = false;
 var clientDisconnects = false;
-var isBusy = false;
 var retryAttempt = 0;
 
 app.use("/", express.static(path.join(__dirname, "../app")));
@@ -47,17 +46,7 @@ io.on("connection", function (_socket) {
   // abort any bundling or zipping process if client disconnects
   socket.on("disconnect", function () {
     clientDisconnects = true;
-
-    // fs.remove(folderToZip, function (err) { 
-    //   if (err)
-    //     console.log("error in deleting");
-
-    //   console.log(`bundling was aborted`);
-
-    //   // clientDisconnects = false;
-    // })
   });
-
 });
 
 app.post("/submit", function (req, res) {
@@ -85,7 +74,6 @@ app.post("/submit", function (req, res) {
   res.status(200).send({ message: extensionsUrl });
   console.log(`Start bundling with extensions URL: ${extensionsUrl}`);
 
-  // isBusy = true;
   // copy the source files to the output location, and update the JSAPI path
   createBundle(jsapiUrl, sourceFolder, folderToBundle, outputFolder).then(
     function (result) {
@@ -95,15 +83,10 @@ app.post("/submit", function (req, res) {
         return;
       }
 
-      // isBusy = false;
       // delete the bundle if client has disconnected 
       if (clientDisconnects) {
-        fs.remove(folderToBundle, function (err) {
-          if (err)
-            console.log("error in deleting");
-
-          console.log(`bundling was aborted`);
-
+        fs.remove(folderToZip, function (err) {
+          console.log(`zipping was aborted`);
           clientDisconnects = false;
         });
       }
@@ -174,16 +157,12 @@ function zip(folderToZip, containerFolder, outputName) {
 
   // if zipping hasn't started when the client disconnects, delete the bundle
   if (clientDisconnects) {
+    clearInterval(intervalId);
+
     fs.remove(folderToZip, function (err) {
-      if (err)
-        console.log("error in deleting");
-
       console.log(`zipping was aborted`);
-
       clientDisconnects = false;
     });
-
-    clearInterval(intervalId);
   }
 
   try {
@@ -282,6 +261,8 @@ app.get("/downloadOutput", function (req, res) {
     res.end(err.message);
   });
 });
+
+// ***************** Helper methods ***************** 
 
 function getFilePathsRecursive(folder, folderToExclude, filePaths) {
   filePaths = filePaths || [];
