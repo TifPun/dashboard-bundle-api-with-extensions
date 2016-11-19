@@ -15,14 +15,13 @@ module.exports = React.createClass({
     var socket = io.connect('http://localhost:3000/');
     socket.on("update", function (data) {
       this.showServerMessage(data);
-    }.bind(this));
 
-    socket.on("serverNotBusy", function (data) {
-      this.showServerMessage(data);
-      this.setIsBundling(false);
+      if (data.serverNotBusy) {
+        this.setIsBundling(false);
 
-      if(data.success)
-        this.props.showDownloadUI();
+        if (data.success)
+          this.props.showDownloadUI();
+      }
     }.bind(this));
   },
 
