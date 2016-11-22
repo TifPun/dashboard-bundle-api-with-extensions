@@ -6,17 +6,8 @@ var archiver = require("archiver");
 var url = require("url");
 var app = express();
 var server = require("http").Server(app);
-
-// Method 1
-// var io = require("socket.io").listen(server);
-// app.set("port", (process.env.PORT || 3000));
-// var server = app.listen(app.get("port"), function(){
-//   console.log("Server started: http://localhost:" + app.get("port") + "/");
-// })
-
-// Method 2
-// see https://github.com/socketio/socket.io/issues/2075
 var io = require("socket.io")(server);
+
 var socket;
 server.listen((process.env.PORT || 3000), function () {
   console.log("Server started: http://localhost:" + app.get("port") + "/");
@@ -26,11 +17,11 @@ var PORTAL_EXTENSIONS_DIR = "extensions";
 var SERVER_EXTENTIONS_DIR = "opsDashboardExtensions"
 var BUNDLE_DIR = "jsapi-bundled";
 var JSAPI_DIR = "arcgis_js_api";
-var isPortal = false;
 var clientDisconnects = false;
 var retryAttempt = 0;
 var sourceFolder = path.join(__dirname, "data");
 var outputFolder = path.join(__dirname, "output");
+var extensionsZip = "extensions.zip";
 
 app.use("/", express.static(path.join(__dirname, "../app")));
 app.use(bodyParser.json());
@@ -59,64 +50,62 @@ app.post("/submit", function (req, res) {
     return;
   }
 
-  var urlString = req.body.urlString.trim();
-  isPortal = (req.body.isPortalSelected === "true");
-
-  var folderToBundle = isPortal ? path.join(outputFolder, BUNDLE_DIR) : path.join(outputFolder, SERVER_EXTENTIONS_DIR);
-  var jsapiUrl = getJsapiUrl(urlString, isPortal);
-
-  var protocol = url.parse(urlString, true, true).protocol;
-  var extensionsUrl = protocol + "//" + path.join(jsapiUrl, "../");
+  let isPortal = (req.body.isPortalSelected === "true");
+  let urlString = req.body.urlString.trim();
+  let jsapiUrl = getJsapiUrl(urlString, isPortal);
+  let extensionsUrl = url.parse(urlString, true, true).protocol + "//" + path.join(jsapiUrl, "../");
 
   socket.emit("update", { message: "started creating extension bundle", serverNotBusy: false });
   res.status(200).send({ message: extensionsUrl });
 
   // bundle the extension and JSAPI files 
-  createBundle(jsapiUrl, sourceFolder, folderToBundle, outputFolder).then(
+  var folderToBundle = isPortal ? path.join(outputFolder, BUNDLE_DIR) : path.join(outputFolder, SERVER_EXTENTIONS_DIR);
+  createBundle(jsapiUrl, sourceFolder, folderToBundle).then(
     function (result) {
       if (!result) {
         socket.emit("update", { message: "error occurred when creating a bundle, please retry", serverNotBusy: true })
         return;
       }
 
-      // delete the bundle if client has disconnected 
-      if (clientDisconnects) {
-        fs.emptydir(outputFolder, function (err) {
-          clientDisconnects = false;
-        });
-      }
-      else {
-        // zip the bundle folder 
-        socket.emit("update", { message: "bundling is done. started zipping", serverNotBusy: false });
-        var outputFolderName = isPortal ? PORTAL_EXTENSIONS_DIR : SERVER_EXTENTIONS_DIR;
-        zip(folderToBundle, outputFolder, outputFolderName);
-      }
+      socket.emit("update", { message: "bundling is done. started zipping", serverNotBusy: false });
+      var outputFolderName = isPortal ? PORTAL_EXTENSIONS_DIR : SERVER_EXTENTIONS_DIR;
+      zip(folderToBundle, outputFolderName);
+
     }, function (err) {
       socket.emit("update", { message: "error occurred when creating a bundle, please retry", serverNotBusy: true });
     });
 
 });
 
-function createBundle(jsapiUrl, sourceFolder, folderToBundle, outputFolder) {
+function createBundle(jsapiUrl, sourceFolder, folderToBundle) {
   // create the bundle by copying the source files to the output location, then updating the JSAPI path
-  var apiFolder = path.join(folderToBundle, JSAPI_DIR);
-  var apiFilePaths = [path.join(apiFolder, "init.js"), path.join(apiFolder, "dojo/dojo.js")];
-  var regex = new RegExp(/\[HOSTNAME_AND_PATH_TO_JSAPI\]/, "gi");
 
   return new Promise(function (resolve, reject) {
-
     // empty the content in the output's container folder without deleting the container itself 
     // the container will be created if it does not exist
     fs.emptydir(outputFolder, function (err) {
       if (err)
-        reject(false);
+        return reject(false);
 
       // copy API and extensions to the folder which will be bundled
       fs.copy(sourceFolder, folderToBundle, function (err) {
-        if (err)
-          reject(false);  // files might not exist in the source location
 
-        // replace text in the API and extensio files
+        // files might not exist in the source location
+        if (err)
+          return reject(false);
+
+        // delete the bundle if client has disconnected 
+        if (clientDisconnects) {
+          fs.emptydir(outputFolder, function (err) {
+            clientDisconnects = false;
+          });
+          return reject(false);
+        }
+
+        // replace text in the API and extension files
+        var apiFolder = path.join(folderToBundle, JSAPI_DIR);
+        var apiFilePaths = [path.join(apiFolder, "init.js"), path.join(apiFolder, "dojo/dojo.js")];
+        var regex = new RegExp(/\[HOSTNAME_AND_PATH_TO_JSAPI\]/, "gi");
         apiFilePaths.forEach(function (path) {
           replaceText(path, regex, jsapiUrl);
         });
@@ -134,12 +123,11 @@ function createBundle(jsapiUrl, sourceFolder, folderToBundle, outputFolder) {
   });
 }
 
-function zip(folderToZip, containerFolder, outputName) {
+function zip(folderToZip, outputName) {
   // zip the bundle folder
 
   var intervalId;
   var lastZippedSize = -1;
-  var zipFilePath = path.join(containerFolder, outputName + ".zip");
 
   // if zipping hasn't started when the client disconnects, delete the bundle
   if (clientDisconnects) {
@@ -154,7 +142,9 @@ function zip(folderToZip, containerFolder, outputName) {
     fs.accessSync(folderToZip);
 
     // create the write stream
-    var writeStream = fs.createWriteStream(zipFilePath);
+    // outputName + ".zip" will be the output file name
+    // var writeStream = fs.createWriteStream(path.join(outputFolder, outputName + ".zip"));   // TODO: Don't change
+    var writeStream = fs.createWriteStream(path.join(outputFolder, extensionsZip));   // TODO: Don't change
 
     writeStream.on("close", function () {
       clearInterval(intervalId);
@@ -165,15 +155,18 @@ function zip(folderToZip, containerFolder, outputName) {
     });
 
     writeStream.on("error", function () {
-      socket.emit("update", { message: "error occurred during zipping. Please try again", serverNotBusy: true });
+      fs.emptydir(outputFolder, function (err) {
+        socket.emit("update", { message: "error occurred during zipping. Please try again", serverNotBusy: true });
+      });
       return;
     })
 
     // start zipping 
-    var archive = archiver("zip", { level: 9 });
-    
+    // var archive = archiver("zip", { level: 9 });
+    var archive = archiver("zip");
+
     archive.on("error", function (err) {
-      fs.emptyDirSync(containerFolder);
+      fs.emptyDirSync(outputFolder);
       socket.emit("update", { message: "error occurred during zipping. Please try again", serverNotBusy: true });
       return;
     });
@@ -191,7 +184,9 @@ function zip(folderToZip, containerFolder, outputName) {
 
     archive.pipe(writeStream);
 
-    var outputStructure = outputName + "/" + path.basename(folderToZip);
+    // folder structure inside the .zip file 
+    var outputStructure = path.basename(folderToZip);  
+    
     archive.directory(folderToZip, outputStructure);
 
     archive.finalize();
@@ -213,9 +208,9 @@ function zip(folderToZip, containerFolder, outputName) {
       else {
         retryAttempt++;
         socket.emit("update", { message: "error occurred, retrying to zip", serverNotBusy: false });
-        zip(folderToZip, containerFolder, outputName);
+        zip(folderToZip, outputName);
       }
-    }.bind(folderToZip, containerFolder, outputName), 2000);
+    }.bind(folderToZip, outputName), 2000);
   } catch (err) {
     socket.emit("update", { message: "error occurred during zipping. Please try again", serverNotBusy: true });
   }
@@ -226,10 +221,9 @@ app.get("/downloadOutput", function (req, res) {
   // todo review if the logic here is enough
   // http://stackoverflow.com/questions/21578208/node-js-send-file-to-client
 
-  var outputPath = isPortal ? path.join(__dirname, "output", PORTAL_EXTENSIONS_DIR) : path.join(__dirname, "output", SERVER_EXTENTIONS_DIR);
-  outputPath += ".zip";
+   var downloadPath = path.join(__dirname, path.basename(outputFolder), extensionsZip);
 
-  var readStream = fs.createReadStream(outputPath);
+  var readStream = fs.createReadStream(downloadPath);
   readStream.on("open", function () {
     readStream.pipe(res);
   });
@@ -275,8 +269,8 @@ function replaceText(path, regex, newText) {
   });
 }
 
-function getJsapiUrl(urlString, isPortal) {
-  var parsedUrl = url.parse(urlString, true, true);
+function getJsapiUrl(hostingUrl, isPortal) {
+  var parsedUrl = url.parse(hostingUrl, true, true);
 
   if (!parsedUrl || !parsedUrl.protocol || !parsedUrl.host) {
     // todo test this
