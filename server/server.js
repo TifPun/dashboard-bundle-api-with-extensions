@@ -143,7 +143,7 @@ function zip(extensionsDir) {
       retryAttempt = 0;
 
       let dataInMB = Math.round(archive.pointer() / 1000000, -1);
-      socket.emit("update", { message: "zipping done. " + dataInMB + "MB of data have been zipped", serverNotBusy: true, success: true });
+      socket.emit("update", { message: `zipping done. ${dataInMB} MB of data have been zipped`, serverNotBusy: true, success: true });
     });
 
     writeStream.on("error", function () {
@@ -189,7 +189,7 @@ function zip(extensionsDir) {
         return;
       }
 
-      var currentZippedSize = archive.pointer();
+      let currentZippedSize = archive.pointer();
       socket.emit("update", { message: `${currentZippedSize} bytes of data have been zipped` });
 
       if (currentZippedSize > lastZippedSize)
@@ -227,7 +227,7 @@ function getFilePathsRecursive(folder, folderToExclude, filePaths) {
 
   let subFolder = fs.readdirSync(folder, "utf8");
   subFolder.map(function (subFolder) {
-    var subFolderPath = path.join(folder, subFolder);
+    let subFolderPath = path.join(folder, subFolder);
 
     if (subFolderPath.startsWith(folderToExclude))
       return;
