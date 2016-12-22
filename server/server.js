@@ -269,7 +269,7 @@ function getJsapiUrl(isPortal, hostingUrl, extensionsDirName) {
   }
 
   if (isPortal)
-    return path.join(host, _path, "apps/dashboard/extensions", extensionsDirName, "arcgis_js_api");
+    return path.join(host, _path, "apps/dashboard/extensions", extensionsDirName, "arcgis_js_api/");
   else
-    return path.join(host, _path, extensionsDirName, "arcgis_js_api");
+    return path.join(host, _path, extensionsDirName, "arcgis_js_api/");
 }
