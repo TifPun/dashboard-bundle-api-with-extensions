@@ -26,11 +26,6 @@ var socket;
 var clientDisconnects = false;
 io.on("connection", function (_socket) {
   socket = _socket;
-
-  // abort any bundling or zipping process if client disconnects
-  socket.on("disconnect", function () {
-    clientDisconnects = true;
-  });
 });
 
 var outputContainer = path.join(__dirname, "output");
@@ -56,6 +51,7 @@ app.post("/submit", function (req, res) {
   res.status(200).send({ message: extensionsUrl });
 
   // bundle the extension and JSAPI files 
+  bundler.initialize(socket);
   bundler.createBundle(extensionsDir, jsapiUrl).then(function (result) {
     if (!result) {
       socket.emit("update", { message: "error occurred when creating a bundle, please retry", serverNotBusy: true })
@@ -86,7 +82,7 @@ app.get("/downloadOutput", function (req, res) {
   });
 });
 
-// ***************** Helper methods ***************** 
+// ***************** Helper functions ***************** 
 
 function getJsapiUrl(isPortal, hostingUrl, extensionsDirName) {
   let parsedUrl = url.parse(hostingUrl, true, true);
