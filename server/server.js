@@ -44,6 +44,12 @@ app.post("/submit", function (req, res) {
   let urlString = req.body.urlString.trim();
   let extensionsDirName = isPortal ? "jsapi-bundled" : "opsDashboardExtensions";
   let jsapiUrl = getJsapiUrl(isPortal, urlString, extensionsDirName); 
+  if(!jsapiUrl){
+    socket.emit("update", { message: "URL is invalid, please retry", serverNotBusy: true });
+    res.status(200);
+    return;
+  }
+
   let extensionsUrl = url.parse(urlString, true, true).protocol + "//" + path.join(jsapiUrl, "../");
   let extensionsDir = path.join(outputContainer, extensionsDirName)
 
@@ -68,18 +74,17 @@ app.post("/submit", function (req, res) {
 });
 
 app.get("/downloadOutput", function (req, res) {
+  // download the zipped bundle
 
-  // todo review if the logic here is enough
+  let filename = path.join(__dirname, path.basename(outputContainer), extensionsZip);
+
+  // using Express helper function: http://expressjs.com/en/api.html
+  res.download(filename); 
+
+  // using the Node.js method to download
   // http://stackoverflow.com/questions/21578208/node-js-send-file-to-client
-
-  let readStream = fs.createReadStream(path.join(__dirname, path.basename(outputContainer), extensionsZip));
-  readStream.on("open", function () {
-    readStream.pipe(res);
-  });
-
-  readStream.on("error", function (err) {
-    res.end(err.message);
-  });
+  // let readStream = fs.createReadStream(filename);
+  // readStream.pipe(res);
 });
 
 // ***************** Helper functions ***************** 
@@ -89,11 +94,9 @@ function getJsapiUrl(isPortal, hostingUrl, extensionsDirName) {
 
   let host = parsedUrl.host;
   let _path = parsedUrl.pathname;
-
+  
   if (!parsedUrl || !parsedUrl.protocol || !host || !_path) {
-    // todo test this
-    console.log("url is invalid");
-    process.exit(1);
+    return;
   }
 
   if (isPortal)

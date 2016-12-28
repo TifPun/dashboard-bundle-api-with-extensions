@@ -59,13 +59,10 @@ module.exports = React.createClass({
         this.setIsBundling(true);
       }.bind(this),
       success: function (data) {
-        this.props.showUserConfig(this.state.isPortalSelected, data.message);
+        if(data && data.message)
+          this.props.showUserConfig(this.state.isPortalSelected, data.message);
       }.bind(this),
       error: function (xhr, status, err) {
-        // todo: need to revise if this is a good way to handle error 
-        // read: 
-        // https://webapplog.com/error-handling-and-running-an-express-js-app/
-        // http://stackoverflow.com/questions/20902144/sending-custom-error-message-from-express-js-over-to-backbone
         this.showServerMessage(xhr.responseJSON);
       }.bind(this)
     });
