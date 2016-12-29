@@ -146,7 +146,7 @@ module.exports = {
           // zip process is going well, report status to client
 
           lastZippedSize = archive.pointer();
-          socket.emit("update", { message: archive.pointer() + "bytes of data have been zipped" });
+          socket.emit("update", { message: archive.pointer() + " bytes of data have been zipped" });
         } else {
           // error conditions 
 
@@ -207,6 +207,9 @@ function replaceText(path, regex, newText) {
 }
 
 function abortZipping(folderToDelete, writeStream) {
+  // abort the zipping process and delete the folder. 
+  // if a write stream is provided the app will try to close it
+  
   if (intervalId)
     clearInterval(intervalId);
 
