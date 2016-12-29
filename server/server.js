@@ -8,7 +8,7 @@ var server = require("http").Server(app);
 var io = require("socket.io")(server);
 var bundler = require("./bundler.js");
 
-server.listen((process.env.PORT || 3000), function () {
+server.listen((process.env.PORT || 3001), function () {
   console.log("Server started: http://localhost:" + app.get("port") + "/");
 });
 

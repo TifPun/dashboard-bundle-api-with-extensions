@@ -9,6 +9,8 @@ var outputContainer = path.join(__dirname, "output");
 var retryAttempt = 0;
 var clientDisconnects = false;
 var socket;
+var extensionsDir;
+var extensionsZip;
 
 module.exports = {
 
@@ -61,54 +63,52 @@ module.exports = {
             });
           }
 
+          
           resolve(true);
         });
       });
     });
   },
 
+
   zip: function(extensionsDir, extensionsZip){
     // zip the bundle folder
 
-    this.extensionsDir = this.extensionsDir || extensionsDir;
-    this.extensionsZip = this.extensionsZip || extensionsZip;
-
     let intervalId;
     let lastZippedSize = -1;
+    var archive = archiver("zip", { level: 9 });
 
     // if zipping hasn't started when the client disconnects, delete the bundle
     if (clientDisconnects) {
       clearInterval(intervalId);
 
-      fs.remove(outputContainer, function (err) {
-        clientDisconnects = false;
-      });
+      archive.abort();    
+      fs.removeSync(outputContainer);
+      clientDisconnects = false;
     }
 
     try {
-      fs.accessSync(this.extensionsDir);
+      fs.accessSync(extensionsDir);
 
       // create the write stream
-      let writeStream = fs.createWriteStream(path.join(outputContainer, this.extensionsZip));
+      let writeStream = fs.createWriteStream(path.join(outputContainer, extensionsZip));
 
       writeStream.on("close", function () {
         clearInterval(intervalId);
-        retryAttempt = 0;
 
+        if(retryAttempt === 3){
+          // stream is closed on an error condition. Do not show the completion message
+          retryAttempt = 0;
+          return;
+        }
+
+        // zipping is done, show the completion message
         let dataInMB = Math.round(archive.pointer() / 1000000, -1);
         socket.emit("update", { message: "zipping done. " + dataInMB + " MB of data have been zipped", serverNotBusy: true, success: true });
       });
 
       writeStream.on("error", function () {
-        fs.removeSync(outputContainer);
-        socket.emit("update", { message: "error occurred during zipping. Please try again", serverNotBusy: true });
-        return;
-      });
-
-      // start zipping 
-      let archive = archiver("zip", { level: 9 });
-
-      archive.on("error", function (err) {
+        archive.abort();    
         fs.removeSync(outputContainer);
         socket.emit("update", { message: "error occurred during zipping. Please try again", serverNotBusy: true });
         return;
@@ -117,18 +117,24 @@ module.exports = {
       archive.on("entry", function (obj) {
         // if zipping has started when the client disconnects, abort the zipping
         if (clientDisconnects) {
-          archive.unpipe(writeStream);
-          writeStream.end();
+          // archive.unpipe(writeStream);
+          // writeStream.end();
+          clearInterval(intervalId);
+          
+          archive.abort();    
+          fs.removeSync(outputContainer);
           clientDisconnects = false;
         }
 
         lastZippedSize = archive.pointer();
+        // console.log("entry, size: " + lastZippedSize);
       })
 
+      // start zipping 
       archive.pipe(writeStream);
 
       // folder structure inside the .zip file 
-      archive.directory(this.extensionsDir, path.basename(this.extensionsDir));
+      archive.directory(extensionsDir, path.basename(extensionsDir));
 
       archive.finalize();
 
@@ -138,14 +144,13 @@ module.exports = {
         if (retryAttempt === 3) {
           // cancel the zipping process after 3 attempts
           
-          clearInterval(intervalId);
-          socket.emit("update", { message: "failed to zip after " + retryAttempt + " attempts. Please try again", serverNotBusy: true });      
+          archive.abort();     
           fs.removeSync(outputContainer);
-          
-          return;
-        }
+          clearInterval(intervalId);
 
-        if (archive.pointer() > lastZippedSize){
+          socket.emit("update", { message: "failed to zip after " + retryAttempt + " attempts. Please try again", serverNotBusy: true }); 
+        }
+        else if (archive.pointer() > lastZippedSize){
           // update the client with the progress 
 
           lastZippedSize = archive.pointer();
@@ -154,14 +159,16 @@ module.exports = {
         else {
           // the size of the zip file didn't change after 2 seconds, remove the file and redo the zipping
 
-          retryAttempt++;
-          socket.emit("update", { message: "error occurred, retrying to zip", serverNotBusy: false });
-
-          fs.removeSync(path.join(outputContainer, this.extensionsZip));
+          archive.abort();
+          fs.removeSync(path.join(outputContainer, extensionsZip));
           clearInterval(intervalId);
 
-          this.zip();
+          socket.emit("update", { message: "error occurred, retrying to zip", serverNotBusy: false });
+          retryAttempt++;
+
+          this.zip(extensionsDir, extensionsZip);
         }
+
       }.bind(this), 2000);
     } catch (err) {
       socket.emit("update", { message: "error occurred during zipping. Please try again", serverNotBusy: true });
@@ -202,6 +209,3 @@ function replaceText(path, regex, newText) {
     });
   });
 }
-
-
-
