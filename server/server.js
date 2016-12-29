@@ -25,6 +25,7 @@ app.use(function (req, res, next) {
 var socket;
 var clientDisconnects = false;
 io.on("connection", function (_socket) {
+  clientDisconnects = false;
   socket = _socket;
 });
 
