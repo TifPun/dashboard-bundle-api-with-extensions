@@ -50,21 +50,21 @@ module.exports = {
           if (err)
             return reject(false);
 
-          // replace text in the API and extension files
           let apiFolder = path.join(extensionsDir, path.basename(jsapiUrl));
-          let apiFilePaths = [path.join(apiFolder, "init.js"), path.join(apiFolder, "dojo/dojo.js")];
-          let regex = new RegExp(/\[HOSTNAME_AND_PATH_TO_JSAPI\]/, "gi");
-          apiFilePaths.forEach(function (path) {
-            replaceText(path, regex, jsapiUrl);
+
+          // first get the extension file paths
+          let filesToReplace = getFilePathsRecursive(extensionsDir, apiFolder);
+
+          // append the API file paths to the extension file paths
+          if (filesToReplace)
+            filesToReplace.push(path.join(apiFolder, "init.js"), path.join(apiFolder, "dojo/dojo.js"))
+          else
+            filesToReplace = [path.join(apiFolder, "init.js"), path.join(apiFolder, "dojo/dojo.js")];
+            
+          // replace text in the API and extension files
+          filesToReplace.forEach(function (path) {
+            replaceText(path, new RegExp(/\[HOSTNAME_AND_PATH_TO_JSAPI\]/, "gi"), jsapiUrl);
           });
-
-          let extensionFiles = getFilePathsRecursive(extensionsDir, apiFolder);
-          if (extensionFiles) {
-            extensionFiles.forEach(function (path) {
-              replaceText(path, regex, jsapiUrl);
-            });
-          }
-
 
           resolve(true);
         });
@@ -184,8 +184,18 @@ function getFilePathsRecursive(folder, folderToExclude, filePaths) {
 
     if (fs.statSync(subFolderPath).isDirectory())
       getFilePathsRecursive(subFolderPath, folderToExclude, filePaths);
-    else
-      filePaths.push(subFolderPath);
+    else {
+      // skip binary files. A better way to do the checking can be found at: http://stackoverflow.com/a/10360837
+      // but for now the app will simply skip the most common types of image files
+      if (path.extname(subFolderPath) != ".jpg" &&
+        path.extname(subFolderPath) != ".jpeg" &&
+        path.extname(subFolderPath) != ".gif" &&
+        path.extname(subFolderPath) != ".tiff" &&
+        path.extname(subFolderPath) != ".tif" &&
+        path.extname(subFolderPath) != ".png" &&
+        path.extname(subFolderPath) != ".bmp")
+        filePaths.push(subFolderPath);
+    }
   });
 
   return filePaths;
@@ -209,7 +219,7 @@ function replaceText(path, regex, newText) {
 function abortZipping(folderToDelete, writeStream) {
   // abort the zipping process and delete the folder. 
   // if a write stream is provided the app will try to close it
-  
+
   if (intervalId)
     clearInterval(intervalId);
 
