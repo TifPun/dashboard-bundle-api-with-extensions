@@ -12,7 +12,7 @@ module.exports = React.createClass({
   },
 
   componentDidMount: function () {
-    var socket = io.connect('http://localhost:3001/');
+    var socket = io.connect('http://localhost:5000/');
     socket.on("update", function (data) {
       this.showServerMessage(data);
 

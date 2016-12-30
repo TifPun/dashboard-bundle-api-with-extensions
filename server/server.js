@@ -4,12 +4,14 @@ var express = require("express");
 var bodyParser = require("body-parser");
 var url = require("url");
 var app = express();
-var server = require("http").Server(app);
-var io = require("socket.io")(server);
 var bundler = require("./bundler.js");
 
-server.listen((process.env.PORT || 3001), function () {
-  console.log("Server started: http://localhost:" + app.get("port") + "/");
+// The original way of how the app listens to a port doesn't work with Heroku
+// (https://github.com/TifPun/dashboard-bundle-api-with-extensions/blob/2a42dcd46085815faeb6c830031c7d70b7f20afe/server/server.js#L11)
+// changing the implementation to the following
+app.set("port", (process.env.PORT || 5000));
+server = app.listen(app.get("port"), function() {
+  console.log("App is running on port", app.get("port"));
 });
 
 app.use("/", express.static(path.join(__dirname, "../app")));
@@ -22,17 +24,21 @@ app.use(function (req, res, next) {
   next();
 });
 
+// config socket.io for the client-server communication
+var io = require("socket.io")(server);
 var socket;
 var clientDisconnects = false;
 io.on("connection", function (_socket) {
   clientDisconnects = false;
   socket = _socket;
+  console.log("connected " + socket);
 });
 
 var outputContainer = path.join(__dirname, "output");
 var extensionsZip = "extensions.zip";
 
 app.post("/submit", function (req, res) {
+  // received a request from client to kick off the bundling
 
   if (!req.body || !req.body.urlString) {
     let errorMessage = "request contains invalid parameters. Make sure URL is correct";
@@ -41,6 +47,7 @@ app.post("/submit", function (req, res) {
     return;
   }
 
+  // validate server URL
   let isPortal = (req.body.isPortalSelected === "true");
   let urlString = req.body.urlString.trim();
   let extensionsDirName = isPortal ? "jsapi-bundled" : "opsDashboardExtensions";
@@ -65,6 +72,7 @@ app.post("/submit", function (req, res) {
       return;
     }
 
+    // zip the bundle 
     socket.emit("update", { message: "bundling is done. start zipping", serverNotBusy: false });
     bundler.zip(extensionsDir, extensionsZip);
 
