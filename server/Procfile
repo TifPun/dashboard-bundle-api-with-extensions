@@ -1,2 +1,0 @@
-worker: browserify -t [ babelify --presets [ react ] ] app/js/main.js -o app/build/app.js
-web: node --inspect server/server.js

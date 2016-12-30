@@ -31,7 +31,6 @@ var clientDisconnects = false;
 io.on("connection", function (_socket) {
   clientDisconnects = false;
   socket = _socket;
-  console.log("connected " + socket);
 });
 
 var outputContainer = path.join(__dirname, "output");
