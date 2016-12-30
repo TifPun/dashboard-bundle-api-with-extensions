@@ -1,5 +1,5 @@
 var React = require("react");
-var Container = require("./container");
+var Container = require("./Container");
 
 ReactDOM.render(
   < Container />,
