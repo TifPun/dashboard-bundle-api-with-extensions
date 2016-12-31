@@ -12,7 +12,7 @@ module.exports = React.createClass({
   },
 
   componentDidMount: function () {
-    var socket = io.connect('http://localhost:5000/');
+    var socket = io.connect("https://morning-taiga-57506.herokuapp.com/");
     socket.on("update", function (data) {
       this.showServerMessage(data);
 
