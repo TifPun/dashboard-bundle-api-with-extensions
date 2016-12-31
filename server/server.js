@@ -67,7 +67,7 @@ app.post("/submit", function (req, res) {
   bundler.initialize(socket);
   bundler.createBundle(extensionsDir, jsapiUrl).then(function (result) {
     if (!result) {
-      socket.emit("update", { message: "error occurred when creating a bundle, please retry", serverNotBusy: true })
+      socket.emit("update", { message: "error occurred when creating a bundle, please retry. result = false", serverNotBusy: true })
       return;
     }
 
@@ -76,7 +76,7 @@ app.post("/submit", function (req, res) {
     bundler.zip(extensionsDir, extensionsZip);
 
   }, function (err) {
-    socket.emit("update", { message: "error occurred when creating a bundle, please retry", serverNotBusy: true });
+    socket.emit("update", { message: "error occurred when creating a bundle, please retry. " + err, serverNotBusy: true });
   });
 
 });
