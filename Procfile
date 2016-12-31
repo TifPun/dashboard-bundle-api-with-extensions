@@ -1,1 +1,1 @@
-web: node --inspect server/server.js
+web: node server/server.js
